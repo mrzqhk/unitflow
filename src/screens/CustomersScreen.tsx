@@ -37,8 +37,8 @@ import {
   Check,
 } from "lucide-react";
 import { useApp } from "../context/AppContext";
-import { customersApi } from "../lib/api";
-import { Customer, CustomerType } from "../types";
+import { customersApi, quotationsApi, ordersApi } from "../lib/api";
+import { Customer, CustomerType, Quotation, Order } from "../types";
 import { canManageCustomers } from "../lib/permissions";
 import { cn } from "../lib/utils";
 
@@ -469,6 +469,28 @@ function CustomerDetailView({
   const [activeTab, setActiveTab] = useState<"details" | "quotations" | "orders" | "payments">("details");
   const canEdit = currentUser ? canManageCustomers(currentUser.role) : false;
 
+  const [quotations, setQuotations] = useState<Quotation[]>([]);
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [loadingRecords, setLoadingRecords] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    setLoadingRecords(true);
+    Promise.all([
+      quotationsApi.list(customer.id).catch(() => []),
+      ordersApi.list(customer.id, currentUser?.role).catch(() => []),
+    ]).then(([qList, oList]) => {
+      if (active) {
+        setQuotations(qList);
+        setOrders(oList);
+        setLoadingRecords(false);
+      }
+    });
+    return () => {
+      active = false;
+    };
+  }, [customer.id, currentUser?.role]);
+
   return (
     <div className="p-8 space-y-6 animate-in fade-in duration-150">
       {/* Top bar with back button & actions */}
@@ -669,31 +691,138 @@ function CustomerDetailView({
         </div>
       )}
 
-      {/* Tab 2: Quotations (Placeholder) */}
+      {/* Tab 2: Quotations */}
       {activeTab === "quotations" && (
-        <div className="bg-white rounded-2xl border border-slate-100 p-12 text-center flex flex-col items-center justify-center">
-          <div className="w-16 h-16 rounded-2xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 mb-4">
-            <FileText className="w-8 h-8" />
-          </div>
-          <h3 className="text-lg font-bold text-slate-800">{t("customers.quotations_tab")}</h3>
-          <p className="text-sm text-slate-500 max-w-md mt-1">{t("customers.empty_quotations")}</p>
-          <span className="mt-4 px-3 py-1 rounded-full text-xs font-semibold bg-slate-100 text-slate-600">
-            Phase 3 Module
-          </span>
+        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
+          {loadingRecords ? (
+            <div className="flex items-center justify-center py-16 text-slate-400">
+              <Loader2 className="w-6 h-6 animate-spin mr-2" />
+              <span>{t("general.loading")}</span>
+            </div>
+          ) : quotations.length === 0 ? (
+            <div className="p-12 text-center flex flex-col items-center justify-center">
+              <div className="w-16 h-16 rounded-2xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 mb-4">
+                <FileText className="w-8 h-8" />
+              </div>
+              <h3 className="text-lg font-bold text-slate-800">{t("customers.quotations_tab")}</h3>
+              <p className="text-sm text-slate-500 max-w-md mt-1">{t("customers.empty_quotations")}</p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm text-left">
+                <thead>
+                  <tr className="border-b border-slate-100 bg-slate-50/70 text-slate-500 text-xs font-semibold uppercase tracking-wider">
+                    <th className="px-5 py-3.5">#</th>
+                    <th className="px-5 py-3.5">{t("quotations.number")}</th>
+                    <th className="px-5 py-3.5">{t("quotations.date")}</th>
+                    <th className="px-5 py-3.5">{t("quotations.valid_until")}</th>
+                    <th className="px-5 py-3.5">{t("quotations.status")}</th>
+                    <th className="px-5 py-3.5 text-right">{t("quotations.total")}</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-50">
+                  {quotations.map((q, idx) => (
+                    <tr key={q.id} className="hover:bg-slate-50/50 transition">
+                      <td className="px-5 py-4 text-slate-400 font-mono text-xs">{idx + 1}</td>
+                      <td className="px-5 py-4 font-mono font-semibold text-indigo-700">{q.quotation_number}</td>
+                      <td className="px-5 py-4 text-slate-500 text-xs">{q.date}</td>
+                      <td className="px-5 py-4 text-slate-500 text-xs">{q.valid_until || "—"}</td>
+                      <td className="px-5 py-4">
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold capitalize bg-slate-100 text-slate-700 border border-slate-200">
+                          {t(`quotations.status_${q.status}`) || q.status}
+                        </span>
+                      </td>
+                      <td className="px-5 py-4 text-right font-semibold text-slate-800">
+                        ₹{Number(q.total || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       )}
 
-      {/* Tab 3: Orders (Placeholder) */}
+      {/* Tab 3: Orders */}
       {activeTab === "orders" && (
-        <div className="bg-white rounded-2xl border border-slate-100 p-12 text-center flex flex-col items-center justify-center">
-          <div className="w-16 h-16 rounded-2xl bg-amber-50 border border-amber-100 flex items-center justify-center text-amber-600 mb-4">
-            <ShoppingBag className="w-8 h-8" />
-          </div>
-          <h3 className="text-lg font-bold text-slate-800">{t("customers.orders_tab")}</h3>
-          <p className="text-sm text-slate-500 max-w-md mt-1">{t("customers.empty_orders")}</p>
-          <span className="mt-4 px-3 py-1 rounded-full text-xs font-semibold bg-slate-100 text-slate-600">
-            Phase 3 Module
-          </span>
+        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
+          {loadingRecords ? (
+            <div className="flex items-center justify-center py-16 text-slate-400">
+              <Loader2 className="w-6 h-6 animate-spin mr-2" />
+              <span>{t("general.loading")}</span>
+            </div>
+          ) : orders.length === 0 ? (
+            <div className="p-12 text-center flex flex-col items-center justify-center">
+              <div className="w-16 h-16 rounded-2xl bg-amber-50 border border-amber-100 flex items-center justify-center text-amber-600 mb-4">
+                <ShoppingBag className="w-8 h-8" />
+              </div>
+              <h3 className="text-lg font-bold text-slate-800">{t("customers.orders_tab")}</h3>
+              <p className="text-sm text-slate-500 max-w-md mt-1">{t("customers.empty_orders")}</p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm text-left">
+                <thead>
+                  <tr className="border-b border-slate-100 bg-slate-50/70 text-slate-500 text-xs font-semibold uppercase tracking-wider">
+                    <th className="px-5 py-3.5">#</th>
+                    <th className="px-5 py-3.5">{t("orders.number")}</th>
+                    <th className="px-5 py-3.5">{t("orders.order_date")}</th>
+                    <th className="px-5 py-3.5">{t("orders.due_date")}</th>
+                    <th className="px-5 py-3.5">{t("orders.priority")}</th>
+                    <th className="px-5 py-3.5">{t("orders.status")}</th>
+                    <th className="px-5 py-3.5 text-right">{t("orders.total")}</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-50">
+                  {orders.map((o, idx) => {
+                    const isOverdue =
+                      o.due_date &&
+                      !["delivered", "closed", "cancelled"].includes(o.status) &&
+                      new Date(o.due_date) < new Date(new Date().toISOString().split("T")[0]);
+
+                    return (
+                      <tr key={o.id} className={cn("hover:bg-slate-50/50 transition", isOverdue && "bg-rose-50/30")}>
+                        <td className="px-5 py-4 text-slate-400 font-mono text-xs">{idx + 1}</td>
+                        <td className="px-5 py-4 font-mono font-semibold text-amber-700">{o.order_number}</td>
+                        <td className="px-5 py-4 text-slate-500 text-xs">{o.order_date}</td>
+                        <td className="px-5 py-4 text-xs">
+                          {o.due_date ? (
+                            <span className={cn("font-medium", isOverdue ? "text-rose-700 font-semibold" : "text-slate-600")}>
+                              {isOverdue && <Clock className="w-3 h-3 inline mr-1 text-rose-600" />}
+                              {o.due_date}
+                            </span>
+                          ) : (
+                            "—"
+                          )}
+                        </td>
+                        <td className="px-5 py-4">
+                          <span
+                            className={cn(
+                              "inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold border capitalize",
+                              o.priority === "urgent"
+                                ? "bg-rose-50 text-rose-700 border-rose-200"
+                                : "bg-slate-100 text-slate-600 border-slate-200"
+                            )}
+                          >
+                            {t(`orders.priority_${o.priority}`) || o.priority}
+                          </span>
+                        </td>
+                        <td className="px-5 py-4">
+                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold capitalize bg-slate-100 text-slate-700 border border-slate-200">
+                            {t(`orders.status_${o.status}`) || o.status}
+                          </span>
+                        </td>
+                        <td className="px-5 py-4 text-right font-semibold text-slate-800">
+                          ₹{Number(o.total || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       )}
 

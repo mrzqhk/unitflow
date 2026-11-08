@@ -552,6 +552,487 @@ export function setupIpcHandlers(ipcMain: any) {
     })
   );
 
+  // ── Quotations ────────────────────────────────────────────────────────────
+
+  /** Roles that can create/edit quotations: owner, admin, sales */
+  const CAN_MANAGE_QUOTES = ["owner", "admin", "sales"];
+
+  /** Generate next quotation number: QT-0001, QT-0002 … */
+  function nextQuotationNumber(): string {
+    const row = dbGet("SELECT COUNT(*) AS cnt FROM quotations");
+    const n = ((row?.cnt as number) ?? 0) + 1;
+    return `QT-${String(n).padStart(4, "0")}`;
+  }
+
+  /** Generate next order number: OD-0001, OD-0002 … */
+  function nextOrderNumber(): string {
+    const row = dbGet("SELECT COUNT(*) AS cnt FROM orders");
+    const n = ((row?.cnt as number) ?? 0) + 1;
+    return `OD-${String(n).padStart(4, "0")}`;
+  }
+
+  /** Attach items array to a quotation row. */
+  function attachQuotationItems(q: any) {
+    q.items = dbAll(
+      "SELECT * FROM quotation_items WHERE quotation_id = ? ORDER BY sort_order ASC",
+      [q.id]
+    );
+    return q;
+  }
+
+  /** Attach items array to an order row. */
+  function attachOrderItems(o: any) {
+    o.items = dbAll(
+      "SELECT * FROM order_items WHERE order_id = ? ORDER BY sort_order ASC",
+      [o.id]
+    );
+    return o;
+  }
+
+  /** List all quotations (with customer name). */
+  ipcMain.handle(
+    "quotations:list",
+    safe((payload?: { customer_id?: number }) => {
+      let sql = `
+        SELECT q.*, c.name AS customer_name, c.customer_type
+        FROM quotations q
+        JOIN customers c ON c.id = q.customer_id
+      `;
+      const params: any[] = [];
+      if (payload?.customer_id) {
+        sql += " WHERE q.customer_id = ?";
+        params.push(payload.customer_id);
+      }
+      sql += " ORDER BY q.id DESC";
+      return dbAll(sql, params);
+    })
+  );
+
+  /** Get a single quotation with its items. */
+  ipcMain.handle(
+    "quotations:get",
+    safe((payload: { id: number }) => {
+      const q = dbGet(
+        `SELECT q.*, c.name AS customer_name, c.customer_type, c.billing_address, c.gst_number
+         FROM quotations q
+         JOIN customers c ON c.id = q.customer_id
+         WHERE q.id = ?`,
+        [payload.id]
+      );
+      if (!q) throw new Error("Quotation not found.");
+      return attachQuotationItems(q);
+    })
+  );
+
+  /** Create a new quotation (draft). */
+  ipcMain.handle(
+    "quotations:create",
+    safe((payload: {
+      customer_id: number;
+      date?: string;
+      valid_until?: string;
+      discount?: number;
+      tax_percent?: number;
+      notes?: string;
+      terms?: string;
+      items: Array<{
+        product_id?: number | null;
+        description: string;
+        specification?: string;
+        quantity: number;
+        rate: number;
+        line_total: number;
+        price_override?: boolean;
+        override_reason?: string;
+      }>;
+      callerRole: string;
+      callerUsername: string;
+    }) => {
+      if (!CAN_MANAGE_QUOTES.includes(payload.callerRole)) {
+        throw new Error("Permission denied: Only owner, admin or sales can create quotations.");
+      }
+
+      // Calculate totals
+      const subtotal = payload.items.reduce((sum, it) => sum + it.line_total, 0);
+      const discountAmt = (subtotal * (payload.discount || 0)) / 100;
+      const taxAmt = ((subtotal - discountAmt) * (payload.tax_percent || 0)) / 100;
+      const total = subtotal - discountAmt + taxAmt;
+
+      const qNum = nextQuotationNumber();
+
+      dbRun(
+        `INSERT INTO quotations
+          (quotation_number, customer_id, date, valid_until, status, discount, tax_percent,
+           notes, terms, subtotal, total, created_by, updated_by)
+         VALUES (?, ?, ?, ?, 'draft', ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          qNum,
+          payload.customer_id,
+          payload.date || new Date().toISOString().split("T")[0],
+          payload.valid_until || null,
+          payload.discount || 0,
+          payload.tax_percent || 0,
+          payload.notes || null,
+          payload.terms || null,
+          subtotal,
+          total,
+          payload.callerUsername,
+          payload.callerUsername,
+        ]
+      );
+
+      const inserted = dbGet("SELECT * FROM quotations WHERE id = last_insert_rowid()");
+      if (!inserted) throw new Error("Failed to create quotation.");
+
+      // Insert items
+      payload.items.forEach((item, idx) => {
+        dbRun(
+          `INSERT INTO quotation_items
+            (quotation_id, product_id, description, specification, quantity, rate, line_total,
+             price_override, override_reason, sort_order)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          [
+            inserted.id,
+            item.product_id || null,
+            item.description,
+            item.specification || null,
+            item.quantity,
+            item.rate,
+            item.line_total,
+            item.price_override ? 1 : 0,
+            item.override_reason || null,
+            idx,
+          ]
+        );
+      });
+
+      recordAudit("quotation", inserted.id, "create", payload.callerUsername, null, { quotation_number: qNum, customer_id: payload.customer_id, total });
+      return attachQuotationItems(dbGet("SELECT * FROM quotations WHERE id = ?", [inserted.id]));
+    })
+  );
+
+  /** Update a quotation (only allowed while in draft status). */
+  ipcMain.handle(
+    "quotations:update",
+    safe((payload: {
+      id: number;
+      customer_id: number;
+      date?: string;
+      valid_until?: string;
+      discount?: number;
+      tax_percent?: number;
+      notes?: string;
+      terms?: string;
+      items: Array<{
+        product_id?: number | null;
+        description: string;
+        specification?: string;
+        quantity: number;
+        rate: number;
+        line_total: number;
+        price_override?: boolean;
+        override_reason?: string;
+      }>;
+      callerRole: string;
+      callerUsername: string;
+    }) => {
+      if (!CAN_MANAGE_QUOTES.includes(payload.callerRole)) {
+        throw new Error("Permission denied: Only owner, admin or sales can edit quotations.");
+      }
+
+      const old = dbGet("SELECT * FROM quotations WHERE id = ?", [payload.id]);
+      if (!old) throw new Error("Quotation not found.");
+      if (old.status !== "draft") throw new Error("Only draft quotations can be edited.");
+
+      // Recalculate totals
+      const subtotal = payload.items.reduce((sum, it) => sum + it.line_total, 0);
+      const discountAmt = (subtotal * (payload.discount || 0)) / 100;
+      const taxAmt = ((subtotal - discountAmt) * (payload.tax_percent || 0)) / 100;
+      const total = subtotal - discountAmt + taxAmt;
+
+      dbRun(
+        `UPDATE quotations SET
+          customer_id = ?, date = ?, valid_until = ?, discount = ?, tax_percent = ?,
+          notes = ?, terms = ?, subtotal = ?, total = ?,
+          updated_by = ?, updated_at = datetime('now')
+         WHERE id = ?`,
+        [
+          payload.customer_id,
+          payload.date || old.date,
+          payload.valid_until || null,
+          payload.discount || 0,
+          payload.tax_percent || 0,
+          payload.notes || null,
+          payload.terms || null,
+          subtotal,
+          total,
+          payload.callerUsername,
+          payload.id,
+        ]
+      );
+
+      // Replace items
+      dbRun("DELETE FROM quotation_items WHERE quotation_id = ?", [payload.id]);
+      payload.items.forEach((item, idx) => {
+        dbRun(
+          `INSERT INTO quotation_items
+            (quotation_id, product_id, description, specification, quantity, rate, line_total,
+             price_override, override_reason, sort_order)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          [
+            payload.id,
+            item.product_id || null,
+            item.description,
+            item.specification || null,
+            item.quantity,
+            item.rate,
+            item.line_total,
+            item.price_override ? 1 : 0,
+            item.override_reason || null,
+            idx,
+          ]
+        );
+      });
+
+      const updated = attachQuotationItems(dbGet("SELECT * FROM quotations WHERE id = ?", [payload.id]));
+      recordAudit("quotation", payload.id, "update", payload.callerUsername, old, { total });
+      return updated;
+    })
+  );
+
+  /** Change quotation status (sent, accepted, rejected, expired). */
+  ipcMain.handle(
+    "quotations:update-status",
+    safe((payload: { id: number; status: string; callerRole: string; callerUsername: string }) => {
+      if (!CAN_MANAGE_QUOTES.includes(payload.callerRole)) {
+        throw new Error("Permission denied.");
+      }
+      const old = dbGet("SELECT * FROM quotations WHERE id = ?", [payload.id]);
+      if (!old) throw new Error("Quotation not found.");
+
+      dbRun(
+        "UPDATE quotations SET status = ?, updated_by = ?, updated_at = datetime('now') WHERE id = ?",
+        [payload.status, payload.callerUsername, payload.id]
+      );
+      recordAudit("quotation", payload.id, `status_change:${payload.status}`, payload.callerUsername, { status: old.status }, { status: payload.status });
+      return true;
+    })
+  );
+
+  // ── Orders ─────────────────────────────────────────────────────────────────
+
+  /** Roles that can create/edit orders: owner, admin, sales */
+  const CAN_MANAGE_ORDERS = ["owner", "admin", "sales"];
+
+  /** Roles that can VIEW orders: owner, admin, sales, supervisor, production, delivery, accountant */
+  const CAN_VIEW_ORDERS = ["owner", "admin", "sales", "supervisor", "worker", "store", "delivery", "accountant", "designer"];
+
+  /** List all orders with customer name. */
+  ipcMain.handle(
+    "orders:list",
+    safe((payload?: { customer_id?: number; callerRole?: string }) => {
+      // All roles who need orders can view them; others blocked
+      if (payload?.callerRole && !CAN_VIEW_ORDERS.includes(payload.callerRole)) {
+        throw new Error("Permission denied: Your role cannot view orders.");
+      }
+
+      let sql = `
+        SELECT o.*, c.name AS customer_name
+        FROM orders o
+        JOIN customers c ON c.id = o.customer_id
+      `;
+      const params: any[] = [];
+      if (payload?.customer_id) {
+        sql += " WHERE o.customer_id = ?";
+        params.push(payload.customer_id);
+      }
+      sql += " ORDER BY o.id DESC";
+      return dbAll(sql, params);
+    })
+  );
+
+  /** Get a single order with its items. */
+  ipcMain.handle(
+    "orders:get",
+    safe((payload: { id: number }) => {
+      const o = dbGet(
+        `SELECT o.*, c.name AS customer_name, c.billing_address, c.gst_number
+         FROM orders o
+         JOIN customers c ON c.id = o.customer_id
+         WHERE o.id = ?`,
+        [payload.id]
+      );
+      if (!o) throw new Error("Order not found.");
+      return attachOrderItems(o);
+    })
+  );
+
+  /** Create a new order directly (not from quotation). */
+  ipcMain.handle(
+    "orders:create",
+    safe((payload: {
+      customer_id: number;
+      quotation_id?: number | null;
+      order_date?: string;
+      due_date?: string;
+      priority?: string;
+      special_instructions?: string;
+      items: Array<{
+        product_id?: number | null;
+        description: string;
+        specification?: string;
+        quantity: number;
+        rate: number;
+        line_total: number;
+      }>;
+      callerRole: string;
+      callerUsername: string;
+    }) => {
+      if (!CAN_MANAGE_ORDERS.includes(payload.callerRole)) {
+        throw new Error("Permission denied: Only owner, admin or sales can create orders.");
+      }
+
+      const subtotal = payload.items.reduce((sum, it) => sum + it.line_total, 0);
+      const oNum = nextOrderNumber();
+
+      dbRun(
+        `INSERT INTO orders
+          (order_number, customer_id, quotation_id, order_date, due_date, priority, status,
+           special_instructions, subtotal, total, created_by, updated_by)
+         VALUES (?, ?, ?, ?, ?, ?, 'confirmed', ?, ?, ?, ?, ?)`,
+        [
+          oNum,
+          payload.customer_id,
+          payload.quotation_id || null,
+          payload.order_date || new Date().toISOString().split("T")[0],
+          payload.due_date || null,
+          payload.priority || "normal",
+          payload.special_instructions || null,
+          subtotal,
+          subtotal,
+          payload.callerUsername,
+          payload.callerUsername,
+        ]
+      );
+
+      const inserted = dbGet("SELECT * FROM orders WHERE id = last_insert_rowid()");
+      if (!inserted) throw new Error("Failed to create order.");
+
+      payload.items.forEach((item, idx) => {
+        dbRun(
+          `INSERT INTO order_items
+            (order_id, product_id, description, specification, quantity, rate, line_total, sort_order)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+          [
+            inserted.id,
+            item.product_id || null,
+            item.description,
+            item.specification || null,
+            item.quantity,
+            item.rate,
+            item.line_total,
+            idx,
+          ]
+        );
+      });
+
+      recordAudit("order", inserted.id, "create", payload.callerUsername, null, { order_number: oNum, customer_id: payload.customer_id, total: subtotal });
+      return attachOrderItems(dbGet("SELECT * FROM orders WHERE id = ?", [inserted.id]));
+    })
+  );
+
+  /** Convert an accepted quotation into an order. */
+  ipcMain.handle(
+    "orders:convert-from-quotation",
+    safe((payload: { quotation_id: number; due_date?: string; priority?: string; callerRole: string; callerUsername: string }) => {
+      if (!CAN_MANAGE_ORDERS.includes(payload.callerRole)) {
+        throw new Error("Permission denied.");
+      }
+
+      const q = dbGet("SELECT * FROM quotations WHERE id = ?", [payload.quotation_id]);
+      if (!q) throw new Error("Quotation not found.");
+      if (q.status !== "accepted") throw new Error("Only accepted quotations can be converted to orders.");
+      if (q.linked_order_id) throw new Error("This quotation already has a linked order.");
+
+      const items = dbAll("SELECT * FROM quotation_items WHERE quotation_id = ? ORDER BY sort_order", [q.id]);
+      const oNum = nextOrderNumber();
+
+      dbRun(
+        `INSERT INTO orders
+          (order_number, customer_id, quotation_id, order_date, due_date, priority, status,
+           subtotal, total, created_by, updated_by)
+         VALUES (?, ?, ?, date('now'), ?, ?, 'confirmed', ?, ?, ?, ?)`,
+        [
+          oNum,
+          q.customer_id,
+          q.id,
+          payload.due_date || null,
+          payload.priority || "normal",
+          q.total,
+          q.total,
+          payload.callerUsername,
+          payload.callerUsername,
+        ]
+      );
+
+      const inserted = dbGet("SELECT * FROM orders WHERE id = last_insert_rowid()");
+      if (!inserted) throw new Error("Failed to create order.");
+
+      // Copy items from quotation
+      items.forEach((item: any, idx: number) => {
+        dbRun(
+          `INSERT INTO order_items
+            (order_id, product_id, description, specification, quantity, rate, line_total, sort_order)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+          [inserted.id, item.product_id, item.description, item.specification, item.quantity, item.rate, item.line_total, idx]
+        );
+      });
+
+      // Link quotation → order
+      dbRun(
+        "UPDATE quotations SET linked_order_id = ?, updated_by = ?, updated_at = datetime('now') WHERE id = ?",
+        [inserted.id, payload.callerUsername, q.id]
+      );
+
+      recordAudit("order", inserted.id, "converted_from_quotation", payload.callerUsername, null, { quotation_id: q.id, order_number: oNum });
+      recordAudit("quotation", q.id, "converted_to_order", payload.callerUsername, { linked_order_id: null }, { linked_order_id: inserted.id });
+
+      return attachOrderItems(dbGet("SELECT * FROM orders WHERE id = ?", [inserted.id]));
+    })
+  );
+
+  /** Update order status. Cancellation requires a reason. */
+  ipcMain.handle(
+    "orders:update-status",
+    safe((payload: { id: number; status: string; cancel_reason?: string; callerRole: string; callerUsername: string }) => {
+      if (!CAN_MANAGE_ORDERS.includes(payload.callerRole)) {
+        throw new Error("Permission denied.");
+      }
+      const old = dbGet("SELECT * FROM orders WHERE id = ?", [payload.id]);
+      if (!old) throw new Error("Order not found.");
+
+      if (payload.status === "cancelled" && !payload.cancel_reason?.trim()) {
+        throw new Error("A cancellation reason is required.");
+      }
+
+      dbRun(
+        `UPDATE orders SET
+          status = ?, cancel_reason = ?,
+          updated_by = ?, updated_at = datetime('now')
+         WHERE id = ?`,
+        [
+          payload.status,
+          payload.status === "cancelled" ? (payload.cancel_reason || null) : (old.cancel_reason || null),
+          payload.callerUsername,
+          payload.id,
+        ]
+      );
+
+      recordAudit("order", payload.id, `status_change:${payload.status}`, payload.callerUsername, { status: old.status }, { status: payload.status, cancel_reason: payload.cancel_reason });
+      return true;
+    })
+  );
+
   // ── Backup ────────────────────────────────────────────────────────────────
   ipcMain.handle(
     "backup:now",

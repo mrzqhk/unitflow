@@ -33,6 +33,18 @@ const ALLOWED_INVOKE_CHANNELS = [
   "products:create",
   "products:update",
   "products:toggle-active",
+  // Quotations
+  "quotations:list",
+  "quotations:get",
+  "quotations:create",
+  "quotations:update",
+  "quotations:update-status",
+  // Orders
+  "orders:list",
+  "orders:get",
+  "orders:create",
+  "orders:convert-from-quotation",
+  "orders:update-status",
   // Backup
   "backup:now",
   // App info

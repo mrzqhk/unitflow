@@ -7,7 +7,7 @@
  * a seamless local storage fallback is provided so the UI remains fully functional.
  */
 
-import { User, Role, Customer, Product, WholesaleSlab, CustomerType } from "../types";
+import { User, Role, Customer, Product, CustomerType, Quotation, Order } from "../types";
 
 // window.api is injected by the preload script in Electron
 declare global {
@@ -28,6 +28,8 @@ if (typeof window !== "undefined" && !window.api) {
   const STORAGE_USERS = "unitflow_mock_users";
   const STORAGE_CUSTOMERS = "unitflow_mock_customers";
   const STORAGE_PRODUCTS = "unitflow_mock_products";
+  const STORAGE_QUOTATIONS = "unitflow_mock_quotations";
+  const STORAGE_ORDERS = "unitflow_mock_orders";
 
   const getMockUsers = (): User[] => {
     try {
@@ -161,6 +163,26 @@ if (typeof window !== "undefined" && !window.api) {
   const saveMockProducts = (products: Product[]) => {
     localStorage.setItem(STORAGE_PRODUCTS, JSON.stringify(products));
   };
+
+  // ── Mock Quotations ────────────────────────────────────────────────────────
+  const getMockQuotations = (): Quotation[] => {
+    try {
+      const data = localStorage.getItem(STORAGE_QUOTATIONS);
+      if (data) return JSON.parse(data);
+    } catch {}
+    return [];
+  };
+  const saveMockQuotations = (q: Quotation[]) => localStorage.setItem(STORAGE_QUOTATIONS, JSON.stringify(q));
+
+  // ── Mock Orders ────────────────────────────────────────────────────────────
+  const getMockOrders = (): Order[] => {
+    try {
+      const data = localStorage.getItem(STORAGE_ORDERS);
+      if (data) return JSON.parse(data);
+    } catch {}
+    return [];
+  };
+  const saveMockOrders = (o: Order[]) => localStorage.setItem(STORAGE_ORDERS, JSON.stringify(o));
 
   window.api = {
     invoke: async (channel: string, ...args: unknown[]) => {
@@ -406,6 +428,187 @@ if (typeof window !== "undefined" && !window.api) {
         case "app:get-version": {
           return { success: true, data: "1.0.0 (Browser Preview)" };
         }
+
+        // ── Quotations ────────────────────────────────────────────────────────
+        case "quotations:list": {
+          const quotations = getMockQuotations();
+          const customers = getMockCustomers();
+          const filtered = payload?.customer_id
+            ? quotations.filter((q: Quotation) => q.customer_id === payload.customer_id)
+            : quotations;
+          return {
+            success: true,
+            data: filtered.map((q: Quotation) => ({
+              ...q,
+              customer_name: customers.find(c => c.id === q.customer_id)?.name ?? "Unknown",
+            })),
+          };
+        }
+        case "quotations:get": {
+          const q = getMockQuotations().find((x: Quotation) => x.id === payload.id);
+          if (!q) return { success: false, error: "Quotation not found." };
+          const customers = getMockCustomers();
+          const c = customers.find(cu => cu.id === q.customer_id);
+          return { success: true, data: { ...q, customer_name: c?.name ?? "Unknown", customer_type: c?.customer_type ?? "retail" } };
+        }
+        case "quotations:create": {
+          const allowed = ["owner", "admin", "sales"].includes(payload.callerRole);
+          if (!allowed) return { success: false, error: "Permission denied." };
+          const quotations = getMockQuotations();
+          const subtotal = (payload.items || []).reduce((s: number, i: any) => s + i.line_total, 0);
+          const disc = (subtotal * (payload.discount || 0)) / 100;
+          const tax = ((subtotal - disc) * (payload.tax_percent || 0)) / 100;
+          const total = subtotal - disc + tax;
+          const newQ: Quotation = {
+            id: Date.now(),
+            quotation_number: `QT-${String(quotations.length + 1).padStart(4, "0")}`,
+            customer_id: payload.customer_id,
+            date: payload.date || new Date().toISOString().split("T")[0],
+            valid_until: payload.valid_until || null,
+            status: "draft",
+            discount: payload.discount || 0,
+            tax_percent: payload.tax_percent || 0,
+            notes: payload.notes || null,
+            terms: payload.terms || null,
+            subtotal,
+            total,
+            linked_order_id: null,
+            items: (payload.items || []).map((it: any, idx: number) => ({ ...it, id: Date.now() + idx, quotation_id: Date.now() })),
+            created_by: payload.callerUsername,
+            updated_by: payload.callerUsername,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          };
+          quotations.unshift(newQ);
+          saveMockQuotations(quotations);
+          return { success: true, data: newQ };
+        }
+        case "quotations:update": {
+          const allowed = ["owner", "admin", "sales"].includes(payload.callerRole);
+          if (!allowed) return { success: false, error: "Permission denied." };
+          const quotations = getMockQuotations();
+          const idx = quotations.findIndex((q: Quotation) => q.id === payload.id);
+          if (idx === -1) return { success: false, error: "Quotation not found." };
+          if (quotations[idx].status !== "draft") return { success: false, error: "Only draft quotations can be edited." };
+          const subtotal = (payload.items || []).reduce((s: number, i: any) => s + i.line_total, 0);
+          const disc = (subtotal * (payload.discount || 0)) / 100;
+          const tax = ((subtotal - disc) * (payload.tax_percent || 0)) / 100;
+          const total = subtotal - disc + tax;
+          quotations[idx] = { ...quotations[idx], ...payload, subtotal, total, updated_at: new Date().toISOString() };
+          saveMockQuotations(quotations);
+          return { success: true, data: quotations[idx] };
+        }
+        case "quotations:update-status": {
+          const allowed = ["owner", "admin", "sales"].includes(payload.callerRole);
+          if (!allowed) return { success: false, error: "Permission denied." };
+          const quotations = getMockQuotations();
+          const idx = quotations.findIndex((q: Quotation) => q.id === payload.id);
+          if (idx === -1) return { success: false, error: "Quotation not found." };
+          quotations[idx].status = payload.status;
+          quotations[idx].updated_at = new Date().toISOString();
+          saveMockQuotations(quotations);
+          return { success: true, data: true };
+        }
+
+        // ── Orders ────────────────────────────────────────────────────────────
+        case "orders:list": {
+          const orders = getMockOrders();
+          const customers = getMockCustomers();
+          const filtered = payload?.customer_id
+            ? orders.filter((o: Order) => o.customer_id === payload.customer_id)
+            : orders;
+          return {
+            success: true,
+            data: filtered.map((o: Order) => ({
+              ...o,
+              customer_name: customers.find(c => c.id === o.customer_id)?.name ?? "Unknown",
+            })),
+          };
+        }
+        case "orders:get": {
+          const o = getMockOrders().find((x: Order) => x.id === payload.id);
+          if (!o) return { success: false, error: "Order not found." };
+          const customers = getMockCustomers();
+          return { success: true, data: { ...o, customer_name: customers.find(c => c.id === o.customer_id)?.name ?? "Unknown" } };
+        }
+        case "orders:create": {
+          const allowed = ["owner", "admin", "sales"].includes(payload.callerRole);
+          if (!allowed) return { success: false, error: "Permission denied." };
+          const orders = getMockOrders();
+          const subtotal = (payload.items || []).reduce((s: number, i: any) => s + i.line_total, 0);
+          const newO: Order = {
+            id: Date.now(),
+            order_number: `OD-${String(orders.length + 1).padStart(4, "0")}`,
+            customer_id: payload.customer_id,
+            quotation_id: payload.quotation_id || null,
+            order_date: payload.order_date || new Date().toISOString().split("T")[0],
+            due_date: payload.due_date || null,
+            priority: payload.priority || "normal",
+            status: "confirmed",
+            special_instructions: payload.special_instructions || null,
+            cancel_reason: null,
+            subtotal,
+            total: subtotal,
+            items: (payload.items || []).map((it: any, idx: number) => ({ ...it, id: Date.now() + idx, order_id: Date.now() })),
+            created_by: payload.callerUsername,
+            updated_by: payload.callerUsername,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          };
+          orders.unshift(newO);
+          saveMockOrders(orders);
+          return { success: true, data: newO };
+        }
+        case "orders:convert-from-quotation": {
+          const allowed = ["owner", "admin", "sales"].includes(payload.callerRole);
+          if (!allowed) return { success: false, error: "Permission denied." };
+          const quotations = getMockQuotations();
+          const qi = quotations.findIndex((q: Quotation) => q.id === payload.quotation_id);
+          if (qi === -1) return { success: false, error: "Quotation not found." };
+          if (quotations[qi].status !== "accepted") return { success: false, error: "Only accepted quotations can be converted." };
+          const q = quotations[qi];
+          const orders = getMockOrders();
+          const newO: Order = {
+            id: Date.now(),
+            order_number: `OD-${String(orders.length + 1).padStart(4, "0")}`,
+            customer_id: q.customer_id,
+            quotation_id: q.id,
+            order_date: new Date().toISOString().split("T")[0],
+            due_date: payload.due_date || null,
+            priority: payload.priority || "normal",
+            status: "confirmed",
+            special_instructions: null,
+            cancel_reason: null,
+            subtotal: q.subtotal,
+            total: q.total,
+            items: (q.items || []).map((it: any, idx: number) => ({ ...it, id: Date.now() + idx, order_id: Date.now() })),
+            created_by: payload.callerUsername,
+            updated_by: payload.callerUsername,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          };
+          orders.unshift(newO);
+          saveMockOrders(orders);
+          quotations[qi].linked_order_id = newO.id;
+          saveMockQuotations(quotations);
+          return { success: true, data: newO };
+        }
+        case "orders:update-status": {
+          const allowed = ["owner", "admin", "sales"].includes(payload.callerRole);
+          if (!allowed) return { success: false, error: "Permission denied." };
+          if (payload.status === "cancelled" && !payload.cancel_reason?.trim()) {
+            return { success: false, error: "A cancellation reason is required." };
+          }
+          const orders = getMockOrders();
+          const idx = orders.findIndex((o: Order) => o.id === payload.id);
+          if (idx === -1) return { success: false, error: "Order not found." };
+          orders[idx].status = payload.status;
+          if (payload.status === "cancelled") orders[idx].cancel_reason = payload.cancel_reason;
+          orders[idx].updated_at = new Date().toISOString();
+          saveMockOrders(orders);
+          return { success: true, data: true };
+        }
+
         default:
           return { success: false, error: `Unknown mock channel: ${channel}` };
       }
@@ -563,4 +766,107 @@ export const backupApi = {
 // ── App info ──────────────────────────────────────────────────────────────────
 export const appApi = {
   getVersion: () => call<string>("app:get-version"),
+};
+
+// ── Quotations ────────────────────────────────────────────────────────────────
+export const quotationsApi = {
+  list: (customer_id?: number) =>
+    call<Quotation[]>("quotations:list", customer_id ? { customer_id } : undefined),
+
+  get: (id: number) => call<Quotation>("quotations:get", { id }),
+
+  create: (payload: {
+    customer_id: number;
+    date?: string;
+    valid_until?: string;
+    discount?: number;
+    tax_percent?: number;
+    notes?: string;
+    terms?: string;
+    items: Array<{
+      product_id?: number | null;
+      description: string;
+      specification?: string;
+      quantity: number;
+      rate: number;
+      line_total: number;
+      price_override?: boolean;
+      override_reason?: string;
+    }>;
+    callerRole: string;
+    callerUsername: string;
+  }) => call<Quotation>("quotations:create", payload),
+
+  update: (payload: {
+    id: number;
+    customer_id: number;
+    date?: string;
+    valid_until?: string;
+    discount?: number;
+    tax_percent?: number;
+    notes?: string;
+    terms?: string;
+    items: Array<{
+      product_id?: number | null;
+      description: string;
+      specification?: string;
+      quantity: number;
+      rate: number;
+      line_total: number;
+      price_override?: boolean;
+      override_reason?: string;
+    }>;
+    callerRole: string;
+    callerUsername: string;
+  }) => call<Quotation>("quotations:update", payload),
+
+  updateStatus: (payload: {
+    id: number;
+    status: string;
+    callerRole: string;
+    callerUsername: string;
+  }) => call<boolean>("quotations:update-status", payload),
+};
+
+// ── Orders ────────────────────────────────────────────────────────────────────
+export const ordersApi = {
+  list: (customer_id?: number, callerRole?: string) =>
+    call<Order[]>("orders:list", { customer_id, callerRole }),
+
+  get: (id: number) => call<Order>("orders:get", { id }),
+
+  create: (payload: {
+    customer_id: number;
+    quotation_id?: number | null;
+    order_date?: string;
+    due_date?: string;
+    priority?: string;
+    special_instructions?: string;
+    items: Array<{
+      product_id?: number | null;
+      description: string;
+      specification?: string;
+      quantity: number;
+      rate: number;
+      line_total: number;
+    }>;
+    callerRole: string;
+    callerUsername: string;
+  }) => call<Order>("orders:create", payload),
+
+  convertFromQuotation: (payload: {
+    quotation_id: number;
+    due_date?: string;
+    priority?: string;
+    callerRole: string;
+    callerUsername: string;
+  }) => call<Order>("orders:convert-from-quotation", payload),
+
+  updateStatus: (payload: {
+    id: number;
+    status: string;
+    cancel_reason?: string;
+    callerRole: string;
+    callerUsername: string;
+  }) => call<boolean>("orders:update-status", payload),
 };

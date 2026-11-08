@@ -11,6 +11,8 @@ import {
   Users,
   Package,
   ShoppingCart,
+  FileText,
+  ShoppingBag,
   Palette,
   Factory,
   Boxes,
@@ -29,16 +31,18 @@ const NAV_ITEMS: {
   labelKey: string;
   icon: React.ElementType;
 }[] = [
-  { screen: "dashboard",  labelKey: "nav.dashboard",  icon: LayoutDashboard },
-  { screen: "customers",  labelKey: "nav.customers",  icon: Users },
-  { screen: "products",   labelKey: "nav.products",   icon: Package },
-  { screen: "sales",      labelKey: "nav.sales",       icon: ShoppingCart },
-  { screen: "design",     labelKey: "nav.design",      icon: Palette },
-  { screen: "production", labelKey: "nav.production",  icon: Factory },
-  { screen: "store",      labelKey: "nav.store",       icon: Boxes },
-  { screen: "delivery",   labelKey: "nav.delivery",    icon: Truck },
-  { screen: "accounts",   labelKey: "nav.accounts",    icon: BookOpen },
-  { screen: "users",      labelKey: "nav.users",       icon: UserCog },
+  { screen: "dashboard",   labelKey: "nav.dashboard",   icon: LayoutDashboard },
+  { screen: "customers",   labelKey: "nav.customers",   icon: Users },
+  { screen: "products",    labelKey: "nav.products",    icon: Package },
+  { screen: "quotations",  labelKey: "nav.quotations",  icon: FileText },
+  { screen: "orders",      labelKey: "nav.orders",      icon: ShoppingBag },
+  { screen: "sales",       labelKey: "nav.sales",       icon: ShoppingCart },
+  { screen: "design",      labelKey: "nav.design",      icon: Palette },
+  { screen: "production",  labelKey: "nav.production",  icon: Factory },
+  { screen: "store",       labelKey: "nav.store",       icon: Boxes },
+  { screen: "delivery",    labelKey: "nav.delivery",    icon: Truck },
+  { screen: "accounts",    labelKey: "nav.accounts",    icon: BookOpen },
+  { screen: "users",       labelKey: "nav.users",       icon: UserCog },
 ];
 
 interface Props {

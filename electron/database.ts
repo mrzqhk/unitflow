@@ -160,6 +160,83 @@ function createTables() {
     );
   `);
 
+  // ── Quotations table ─────────────────────────────────────────────────────
+  _db.run(`
+    CREATE TABLE IF NOT EXISTS quotations (
+      id               INTEGER PRIMARY KEY AUTOINCREMENT,
+      quotation_number TEXT    NOT NULL UNIQUE,       -- e.g. QT-0001
+      customer_id      INTEGER NOT NULL REFERENCES customers(id),
+      date             TEXT    NOT NULL DEFAULT (date('now')),
+      valid_until      TEXT,
+      status           TEXT    NOT NULL DEFAULT 'draft', -- draft | sent | accepted | rejected | expired
+      discount         REAL    NOT NULL DEFAULT 0,
+      tax_percent      REAL    NOT NULL DEFAULT 0,
+      notes            TEXT,
+      terms            TEXT,
+      subtotal         REAL    NOT NULL DEFAULT 0,
+      total            REAL    NOT NULL DEFAULT 0,
+      linked_order_id  INTEGER,                       -- filled when converted to order
+      created_by       TEXT    NOT NULL DEFAULT 'system',
+      updated_by       TEXT    NOT NULL DEFAULT 'system',
+      created_at       TEXT    NOT NULL DEFAULT (datetime('now')),
+      updated_at       TEXT    NOT NULL DEFAULT (datetime('now'))
+    );
+  `);
+
+  // ── Quotation Items table ────────────────────────────────────────────────
+  _db.run(`
+    CREATE TABLE IF NOT EXISTS quotation_items (
+      id               INTEGER PRIMARY KEY AUTOINCREMENT,
+      quotation_id     INTEGER NOT NULL REFERENCES quotations(id) ON DELETE CASCADE,
+      product_id       INTEGER REFERENCES products(id), -- NULL for free-text items
+      description      TEXT    NOT NULL,
+      specification    TEXT,                            -- size, colour, notes per item
+      quantity         REAL    NOT NULL DEFAULT 1,
+      rate             REAL    NOT NULL DEFAULT 0,
+      line_total       REAL    NOT NULL DEFAULT 0,
+      price_override   INTEGER NOT NULL DEFAULT 0,     -- 1 if rate was manually overridden below standard
+      override_reason  TEXT,                           -- required when price_override = 1
+      sort_order       INTEGER NOT NULL DEFAULT 0
+    );
+  `);
+
+  // ── Orders table ──────────────────────────────────────────────────────────
+  _db.run(`
+    CREATE TABLE IF NOT EXISTS orders (
+      id                   INTEGER PRIMARY KEY AUTOINCREMENT,
+      order_number         TEXT    NOT NULL UNIQUE,       -- e.g. OD-0001
+      customer_id          INTEGER NOT NULL REFERENCES customers(id),
+      quotation_id         INTEGER REFERENCES quotations(id), -- optional source quotation
+      order_date           TEXT    NOT NULL DEFAULT (date('now')),
+      due_date             TEXT,
+      priority             TEXT    NOT NULL DEFAULT 'normal',  -- normal | urgent
+      status               TEXT    NOT NULL DEFAULT 'confirmed', -- confirmed | in_production | ready | delivered | closed | cancelled
+      special_instructions TEXT,
+      cancel_reason        TEXT,                          -- required when cancelled
+      subtotal             REAL    NOT NULL DEFAULT 0,
+      total                REAL    NOT NULL DEFAULT 0,
+      created_by           TEXT    NOT NULL DEFAULT 'system',
+      updated_by           TEXT    NOT NULL DEFAULT 'system',
+      created_at           TEXT    NOT NULL DEFAULT (datetime('now')),
+      updated_at           TEXT    NOT NULL DEFAULT (datetime('now'))
+    );
+  `);
+
+  // ── Order Items table ─────────────────────────────────────────────────────
+  _db.run(`
+    CREATE TABLE IF NOT EXISTS order_items (
+      id           INTEGER PRIMARY KEY AUTOINCREMENT,
+      order_id     INTEGER NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
+      product_id   INTEGER REFERENCES products(id),
+      description  TEXT    NOT NULL,
+      specification TEXT,
+      quantity     REAL    NOT NULL DEFAULT 1,
+      rate         REAL    NOT NULL DEFAULT 0,
+      line_total   REAL    NOT NULL DEFAULT 0,
+      sort_order   INTEGER NOT NULL DEFAULT 0
+    );
+  `);
+
   console.log("[DB] Tables verified / created.");
 }
 

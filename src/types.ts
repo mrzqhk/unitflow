@@ -78,3 +78,86 @@ export interface AuditLogEntry {
 }
 
 export type Language = "en" | "ml"; // ml = Malayalam
+
+// ── Quotations ────────────────────────────────────────────────────────────────
+
+export type QuotationStatus = "draft" | "sent" | "accepted" | "rejected" | "expired";
+
+export interface QuotationItem {
+  id?: number;
+  quotation_id?: number;
+  product_id?: number | null;
+  description: string;
+  specification?: string | null;
+  quantity: number;
+  rate: number;
+  line_total: number;
+  price_override?: number; // 1 = overridden below standard
+  override_reason?: string | null;
+  sort_order?: number;
+}
+
+export interface Quotation {
+  id: number;
+  quotation_number: string;
+  customer_id: number;
+  customer_name?: string;
+  customer_type?: string;
+  billing_address?: string | null;
+  gst_number?: string | null;
+  date: string;
+  valid_until?: string | null;
+  status: QuotationStatus;
+  discount: number;
+  tax_percent: number;
+  notes?: string | null;
+  terms?: string | null;
+  subtotal: number;
+  total: number;
+  linked_order_id?: number | null;
+  items?: QuotationItem[];
+  created_by: string;
+  updated_by: string;
+  created_at: string;
+  updated_at: string;
+}
+
+// ── Orders ────────────────────────────────────────────────────────────────────
+
+export type OrderStatus = "confirmed" | "in_production" | "ready" | "delivered" | "closed" | "cancelled";
+export type OrderPriority = "normal" | "urgent";
+
+export interface OrderItem {
+  id?: number;
+  order_id?: number;
+  product_id?: number | null;
+  description: string;
+  specification?: string | null;
+  quantity: number;
+  rate: number;
+  line_total: number;
+  sort_order?: number;
+}
+
+export interface Order {
+  id: number;
+  order_number: string;
+  customer_id: number;
+  customer_name?: string;
+  billing_address?: string | null;
+  gst_number?: string | null;
+  quotation_id?: number | null;
+  order_date: string;
+  due_date?: string | null;
+  priority: OrderPriority;
+  status: OrderStatus;
+  special_instructions?: string | null;
+  cancel_reason?: string | null;
+  subtotal: number;
+  total: number;
+  items?: OrderItem[];
+  created_by: string;
+  updated_by: string;
+  created_at: string;
+  updated_at: string;
+}

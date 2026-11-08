@@ -21,6 +21,8 @@ import DashboardScreen from "../screens/DashboardScreen";
 import UsersScreen     from "../screens/UsersScreen";
 import CustomersScreen from "../screens/CustomersScreen";
 import ProductsScreen  from "../screens/ProductsScreen";
+import QuotationsScreen from "../screens/QuotationsScreen";
+import OrdersScreen    from "../screens/OrdersScreen";
 
 // Placeholder component for screens not yet built
 function ComingSoon({ name }: { name: string }) {
@@ -39,8 +41,10 @@ function ScreenRenderer({ screen }: { screen: Screen }) {
     case "dashboard":  return <DashboardScreen />;
     case "customers":  return <CustomersScreen />;
     case "products":   return <ProductsScreen />;
+    case "quotations": return <QuotationsScreen />;
+    case "orders":     return <OrdersScreen />;
     case "users":      return <UsersScreen />;
-    case "sales":      return <ComingSoon name="Sales" />;
+    case "sales":      return <QuotationsScreen />;
     case "design":     return <ComingSoon name="Design" />;
     case "production": return <ComingSoon name="Production" />;
     case "store":      return <ComingSoon name="Store" />;

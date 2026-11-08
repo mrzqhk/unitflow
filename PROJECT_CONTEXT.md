@@ -82,8 +82,29 @@ The 8 roles configured in the database:
 
 ---
 
+### ✅ Phase 3: Quotations and Orders (COMPLETED)
+- [x] Database tables `quotations`, `quotation_items`, `orders`, and `order_items` with strict foreign keys
+- [x] Auto-generation of numbers: Quotations (`QT-0001`, `QT-0002`...) and Orders (`OD-0001`, `OD-0002`...)
+- [x] Quotations Screen: searchable table, filter by status (`draft`, `sent`, `accepted`, `rejected`, `expired`)
+- [x] Add/Edit Quotation modal: customer picker, multi-item row editor (product dropdown or free-text item, description, specification, quantity, rate, line total)
+- [x] Pricing intelligence: automatically pre-fills retail price for retail clients and wholesale price for wholesale clients, applying wholesale tiered quantity slabs dynamically
+- [x] Role-enforced price overrides: rates below standard can only be altered by `owner` and `admin`, and require a mandatory reason; enforced in UI and SQLite IPC handler
+- [x] Automatic calculation: subtotal, discount %, tax %, and grand total
+- [x] Draft restriction: only draft quotations can be modified
+- [x] Printable PDF export: clean print document with company header, client details, items table, tax/discount breakdown, terms and conditions; bundled font stack with full Malayalam support (`Nirmala UI`, `Kartika`, `Noto Sans Malayalam`)
+- [x] Quotation status workflow: `draft` → `sent` → `accepted` / `rejected` / `expired`
+- [x] One-click conversion: "Convert to Order" on accepted quotations transfers all line items, rates, and customer details, with bidirectional linkage
+- [x] Orders Screen: searchable table, filter by status (`confirmed`, `in_production`, `ready`, `delivered`, `closed`, `cancelled`), priority badge (`normal`, `urgent`)
+- [x] Overdue order highlighting: automated visual alert when order due date has passed
+- [x] Order Detail View: multi-tab interface with **Details**, **Items**, and placeholder tabs for **Design**, **Production**, and **Payments**
+- [x] Customer Detail View integration: populated "Quotations" and "Orders" tabs showing records filtered for that specific customer
+- [x] Safe cancellation policy: cancelling an order requires a mandatory reason; zero hard-deletion in the database
+- [x] Permission & audit enforcement: `owner`, `admin`, and `sales` can create/manage quotations & orders; other roles restricted to view-only; every creation, edit, conversion, and status change is logged to `audit_log` with `created_by` and `updated_by`
+- [x] Bilingual support: 100% English & Malayalam localized labels across all new screens and forms
+
+---
+
 ### ⏳ Future Phases (Planned per PRD)
-- [ ] **Phase 3: Sales, Quotation & Order Management** (Quotations, Orders, Custom Notes, linking to Customer Detail tabs)
 - [ ] **Phase 4: Design & Approval Workflow** (Design asset uploads, versions, owner approval)
 - [ ] **Phase 5: Production & Job Cards** (Job card auto-generation, 4 stages: Cutting, Stitching/Assembly, QC, Packing)
 - [ ] **Phase 6: Worker Touch Screen** (Simplified touch UI with PIN login and barcode action)
@@ -91,6 +112,49 @@ The 8 roles configured in the database:
 - [ ] **Phase 8: Delivery & Logistics** (Dispatch, delivery challans, customer sign-off)
 - [ ] **Phase 9: Accounts & Invoicing** (GST/tax invoicing, customer ledgers, payment tracking)
 - [ ] **Phase 10: Reports & Analytics** (Production throughput, revenue, export to PDF/Excel)
+
+---
+
+## 🧪 How to Test
+
+### 1. Launch the App
+```bash
+npm run dev
+```
+Or view in browser at **http://localhost:5173**.
+
+### 2. Test Quotations
+1. In the sidebar, click **Quotations** (`കൊട്ടേഷനുകൾ`).
+2. Click **"New Quotation"**:
+   - Pick a Customer (e.g. `Apex Apparels Ltd` - wholesale).
+   - Select a Product (e.g. `Premium Cotton Shirt`): notice how wholesale pricing (`₹850`) applies automatically.
+   - Increase Quantity to `20`: notice how the slab rate (`₹800`) kicks in automatically.
+   - Try lowering the rate below standard: notice the amber override warning and reason requirement (permitted only for `owner`/`admin`).
+   - Add discount % or tax % to verify live grand total recalculation.
+   - Click **Save**.
+3. In the Quotations table, click on the newly created quotation to open the **Quotation Detail View**:
+   - Click **"Export PDF"** to preview the clean printable invoice layout with Malayalam font support.
+   - Click **"Mark as Sent"**, then **"Mark as Accepted"**.
+   - Notice the green **"Convert to Order"** button appears.
+
+### 3. Test Converting Quotation to Order & Order Management
+1. In the accepted quotation view, click **"Convert to Order"**:
+   - Set an optional due date and priority (`Urgent` or `Normal`).
+   - Click confirm: an order (e.g. `OD-0001`) is generated instantly with all line items copied and linked.
+2. In the sidebar, click **Orders** (`ഓർഡറുകൾ`):
+   - Locate the order in the searchable table.
+   - Verify overdue highlight if due date is set in the past.
+   - Click on the order to open the **Order Detail View**: explore the **Details**, **Items**, **Design**, **Production**, and **Payments** tabs.
+   - Test advancing the status (`Update Status → In Production`).
+   - Test **"Cancel Order"**: notice the prompt enforces entering a reason.
+
+### 4. Test Customer Detail View Integration
+1. In the sidebar, click **Customers** (`ഉപഭോക്താക്കൾ`).
+2. Click on the customer for whom quotations/orders were created.
+3. Switch to the **Quotations** and **Orders** tabs: notice the real-time list of quotations and orders for that customer.
+
+### 5. Test Language Switch
+- Toggle between **EN** and **മല** in the top navigation bar to test Malayalam and English localization across all quotation and order screens.
 
 ---
 
