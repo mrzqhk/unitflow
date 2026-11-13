@@ -237,6 +237,82 @@ function createTables() {
     );
   `);
 
+  // ── Designs table (Design & Approval Workflow) ───────────────────────────
+  _db.run(`
+    CREATE TABLE IF NOT EXISTS designs (
+      id               INTEGER PRIMARY KEY AUTOINCREMENT,
+      order_id         INTEGER NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
+      version_number   INTEGER NOT NULL,
+      file_path        TEXT    NOT NULL,
+      file_name        TEXT    NOT NULL,
+      uploaded_by      TEXT    NOT NULL,
+      uploaded_at      TEXT    NOT NULL DEFAULT (datetime('now')),
+      approval_status  TEXT    NOT NULL DEFAULT 'pending', -- pending | approved | rejected | revision_requested
+      approved_by_name TEXT,                               -- customer or representative name
+      approved_on      TEXT,
+      approval_method  TEXT,                               -- phone | WhatsApp | in person | email
+      remarks          TEXT
+    );
+  `);
+
+  // ── Payments table ────────────────────────────────────────────────────────
+  _db.run(`
+    CREATE TABLE IF NOT EXISTS payments (
+      id               INTEGER PRIMARY KEY AUTOINCREMENT,
+      order_id         INTEGER NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
+      customer_id      INTEGER NOT NULL REFERENCES customers(id),
+      amount           REAL    NOT NULL,
+      payment_date     TEXT    NOT NULL DEFAULT (date('now')),
+      mode             TEXT    NOT NULL,                   -- cash | UPI | bank transfer | cheque
+      reference_number TEXT,
+      notes            TEXT,
+      received_by      TEXT    NOT NULL,
+      is_cancelled     INTEGER NOT NULL DEFAULT 0,
+      cancel_reason    TEXT,
+      cancelled_by     TEXT,
+      cancelled_at     TEXT,
+      created_at       TEXT    NOT NULL DEFAULT (datetime('now'))
+    );
+  `);
+
+  // ── Invoices table ────────────────────────────────────────────────────────
+  _db.run(`
+    CREATE TABLE IF NOT EXISTS invoices (
+      id             INTEGER PRIMARY KEY AUTOINCREMENT,
+      invoice_number TEXT    NOT NULL UNIQUE,              -- e.g. INV-0001
+      order_id       INTEGER NOT NULL REFERENCES orders(id),
+      customer_id    INTEGER NOT NULL REFERENCES customers(id),
+      date           TEXT    NOT NULL DEFAULT (date('now')),
+      subtotal       REAL    NOT NULL DEFAULT 0,
+      discount       REAL    NOT NULL DEFAULT 0,
+      tax_percent    REAL    NOT NULL DEFAULT 0,
+      tax_amount     REAL    NOT NULL DEFAULT 0,
+      total          REAL    NOT NULL DEFAULT 0,
+      type           TEXT    NOT NULL DEFAULT 'final',     -- advance | partial | final
+      status         TEXT    NOT NULL DEFAULT 'issued',    -- issued | cancelled
+      cancel_reason  TEXT,
+      cancelled_by   TEXT,
+      cancelled_at   TEXT,
+      notes          TEXT,
+      created_by     TEXT    NOT NULL,
+      created_at     TEXT    NOT NULL DEFAULT (datetime('now'))
+    );
+  `);
+
+  // ── Invoice Items table ───────────────────────────────────────────────────
+  _db.run(`
+    CREATE TABLE IF NOT EXISTS invoice_items (
+      id            INTEGER PRIMARY KEY AUTOINCREMENT,
+      invoice_id    INTEGER NOT NULL REFERENCES invoices(id) ON DELETE CASCADE,
+      description   TEXT    NOT NULL,
+      specification TEXT,
+      quantity      REAL    NOT NULL DEFAULT 1,
+      rate          REAL    NOT NULL DEFAULT 0,
+      line_total    REAL    NOT NULL DEFAULT 0,
+      sort_order    INTEGER NOT NULL DEFAULT 0
+    );
+  `);
+
   console.log("[DB] Tables verified / created.");
 }
 

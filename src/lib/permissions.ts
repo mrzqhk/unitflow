@@ -26,7 +26,7 @@ export type Screen =
 /** Map of which screens each role can access. */
 const ROLE_PERMISSIONS: Record<Role, Screen[]> = {
   owner:      ["dashboard", "customers", "products", "quotations", "orders", "sales", "design", "production", "store", "delivery", "accounts", "users"],
-  sales:      ["dashboard", "customers", "products", "quotations", "orders", "sales"],
+  sales:      ["dashboard", "customers", "products", "quotations", "orders", "sales", "accounts"],
   designer:   ["dashboard", "products", "design", "orders"],
   supervisor: ["dashboard", "customers", "products", "orders", "production", "design", "store"],
   worker:     ["dashboard", "production", "orders"],
@@ -63,6 +63,29 @@ export function canViewOrders(role: Role): boolean {
 /** Check if owner/admin can override a price below standard on a quotation. */
 export function canOverridePrice(role: Role): boolean {
   return role === "owner" || role === "admin";
+}
+
+/** Check if role can record payments & invoices (Rule 15: sales, owner, admin, accountant) */
+export function canManagePayments(role: Role): boolean {
+  return ["owner", "sales", "accountant"].includes(role);
+}
+
+export function canManageInvoices(role: Role): boolean {
+  return ["owner", "sales", "accountant"].includes(role);
+}
+
+/** Rule 15: Only owner can approve overpayment and cancel invoices */
+export function canApproveOverpayment(role: Role): boolean {
+  return role === "owner";
+}
+
+export function canCancelInvoice(role: Role): boolean {
+  return role === "owner";
+}
+
+/** Check if role can upload / approve designs */
+export function canManageDesigns(role: Role): boolean {
+  return ["owner", "sales", "designer", "supervisor"].includes(role);
 }
 
 /** Returns all screens the role can access. */

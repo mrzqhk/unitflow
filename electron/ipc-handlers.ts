@@ -9,8 +9,10 @@
  */
 
 const bcrypt = require("bcryptjs");
-const { getDb, dbAll, dbGet, dbRun, recordAudit } = require("./database");
-const { app } = require("electron");
+const { dbAll, dbGet, dbRun, recordAudit } = require("./database");
+const { app, shell } = require("electron");
+const fs = require("fs");
+const path = require("path");
 
 // ── Role type ────────────────────────────────────────────────────────────────
 type Role =
@@ -580,10 +582,36 @@ export function setupIpcHandlers(ipcMain: any) {
     return q;
   }
 
-  /** Attach items array to an order row. */
+  /** Calculate payment status and amounts for an order. */
+  function enrichOrderPaymentInfo(o: any) {
+    const paidRow = dbGet(
+      "SELECT COALESCE(SUM(amount), 0) AS total_paid FROM payments WHERE order_id = ? AND is_cancelled = 0",
+      [o.id]
+    );
+    const paid = Number(paidRow?.total_paid ?? 0);
+    o.paid_amount = paid;
+    o.balance_amount = Math.max(0, Number(o.total || 0) - paid);
+    if (paid <= 0) {
+      o.payment_status = "unpaid";
+    } else if (paid >= Number(o.total || 0)) {
+      o.payment_status = "paid";
+    } else if (o.status === "confirmed") {
+      o.payment_status = "advance_paid";
+    } else {
+      o.payment_status = "partially_paid";
+    }
+    return o;
+  }
+
+  /** Attach items array and payment/design stats to an order row. */
   function attachOrderItems(o: any) {
     o.items = dbAll(
       "SELECT * FROM order_items WHERE order_id = ? ORDER BY sort_order ASC",
+      [o.id]
+    );
+    enrichOrderPaymentInfo(o);
+    o.latest_design = dbGet(
+      "SELECT * FROM designs WHERE order_id = ? ORDER BY version_number DESC, id DESC LIMIT 1",
       [o.id]
     );
     return o;
@@ -847,7 +875,8 @@ export function setupIpcHandlers(ipcMain: any) {
         params.push(payload.customer_id);
       }
       sql += " ORDER BY o.id DESC";
-      return dbAll(sql, params);
+      const orders = dbAll(sql, params);
+      return orders.map(enrichOrderPaymentInfo);
     })
   );
 
@@ -1015,6 +1044,22 @@ export function setupIpcHandlers(ipcMain: any) {
         throw new Error("A cancellation reason is required.");
       }
 
+      // Rule 4: An order cannot move to "in_production" unless its latest design is approved!
+      if (payload.status === "in_production") {
+        const latestDesign = dbGet(
+          "SELECT * FROM designs WHERE order_id = ? ORDER BY version_number DESC, id DESC LIMIT 1",
+          [payload.id]
+        );
+        if (!latestDesign) {
+          throw new Error("Cannot move order to In Production: No design file has been uploaded for this order.");
+        }
+        if (latestDesign.approval_status !== "approved") {
+          throw new Error(
+            `Cannot move order to In Production: Latest design (version ${latestDesign.version_number}) is ${latestDesign.approval_status}. The design must be approved first.`
+          );
+        }
+      }
+
       dbRun(
         `UPDATE orders SET
           status = ?, cancel_reason = ?,
@@ -1030,6 +1075,571 @@ export function setupIpcHandlers(ipcMain: any) {
 
       recordAudit("order", payload.id, `status_change:${payload.status}`, payload.callerUsername, { status: old.status }, { status: payload.status, cancel_reason: payload.cancel_reason });
       return true;
+    })
+  );
+
+  // ── Designs (Design & Approval Workflow) ──────────────────────────────────
+
+  function getDesignsDir(): string {
+    const { getUserDataDir } = require("./database");
+    const dir = path.join(getUserDataDir(), "designs");
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+    }
+    return dir;
+  }
+
+  /** List designs for an order. */
+  ipcMain.handle(
+    "designs:list",
+    safe((payload: { order_id: number }) => {
+      const rows = dbAll(
+        "SELECT * FROM designs WHERE order_id = ? ORDER BY version_number DESC, id DESC",
+        [payload.order_id]
+      );
+      // For images, provide base64 data preview if file exists
+      return rows.map((d: any) => {
+        const ext = path.extname(d.file_name).toLowerCase();
+        let preview: string | null = null;
+        if ([".png", ".jpg", ".jpeg", ".webp", ".gif"].includes(ext) && fs.existsSync(d.file_path)) {
+          try {
+            const buf = fs.readFileSync(d.file_path);
+            const mime = ext === ".png" ? "image/png" : ext === ".webp" ? "image/webp" : "image/jpeg";
+            preview = `data:${mime};base64,${buf.toString("base64")}`;
+          } catch (e) {
+            console.error("[Design Preview Error]", e);
+          }
+        }
+        return { ...d, preview };
+      });
+    })
+  );
+
+  /** Upload a design file. */
+  ipcMain.handle(
+    "designs:upload",
+    safe(async (payload: { order_id: number; file_name: string; file_data: string; callerUsername: string }) => {
+      const order = dbGet("SELECT id, order_number FROM orders WHERE id = ?", [payload.order_id]);
+      if (!order) throw new Error("Order not found.");
+
+      const maxRow = dbGet("SELECT MAX(version_number) AS max_v FROM designs WHERE order_id = ?", [payload.order_id]);
+      const nextVersion = ((maxRow?.max_v as number) ?? 0) + 1;
+
+      const designsDir = getDesignsDir();
+      const cleanName = payload.file_name.replace(/[^a-zA-Z0-9._-]/g, "_");
+      const savedFileName = `order_${payload.order_id}_v${nextVersion}_${Date.now()}_${cleanName}`;
+      const targetPath = path.join(designsDir, savedFileName);
+
+      // file_data is base64
+      const base64Data = payload.file_data.replace(/^data:[^;]+;base64,/, "");
+      fs.writeFileSync(targetPath, Buffer.from(base64Data, "base64"));
+
+      dbRun(
+        `INSERT INTO designs (order_id, version_number, file_path, file_name, uploaded_by, approval_status)
+         VALUES (?, ?, ?, ?, ?, 'pending')`,
+        [payload.order_id, nextVersion, targetPath, payload.file_name, payload.callerUsername]
+      );
+
+      const inserted = dbGet("SELECT * FROM designs WHERE id = last_insert_rowid()");
+      recordAudit("design", inserted.id, "upload", payload.callerUsername, null, {
+        order_id: payload.order_id,
+        version: nextVersion,
+        file_name: payload.file_name,
+      });
+
+      return inserted;
+    })
+  );
+
+  /** Update design approval status (approved, rejected, revision_requested). */
+  ipcMain.handle(
+    "designs:update-approval",
+    safe((payload: {
+      id: number;
+      approval_status: "approved" | "rejected" | "revision_requested";
+      approved_by_name?: string;
+      approved_on?: string;
+      approval_method?: string;
+      remarks: string;
+      callerRole: string;
+      callerUsername: string;
+    }) => {
+      if (!payload.remarks?.trim()) {
+        throw new Error("A remark is required for any approval action.");
+      }
+
+      if (payload.approval_status === "approved") {
+        if (!payload.approved_by_name?.trim()) {
+          throw new Error("Customer / approver name is required for approval.");
+        }
+        if (!payload.approval_method?.trim()) {
+          throw new Error("Approval method (phone, WhatsApp, in person, email) is required.");
+        }
+        if (!payload.approved_on?.trim()) {
+          throw new Error("Approval date is required.");
+        }
+      }
+
+      const oldDesign = dbGet("SELECT * FROM designs WHERE id = ?", [payload.id]);
+      if (!oldDesign) throw new Error("Design not found.");
+
+      dbRun(
+        `UPDATE designs SET
+          approval_status = ?,
+          approved_by_name = ?,
+          approved_on = ?,
+          approval_method = ?,
+          remarks = ?
+         WHERE id = ?`,
+        [
+          payload.approval_status,
+          payload.approval_status === "approved" ? payload.approved_by_name?.trim() : null,
+          payload.approval_status === "approved" ? (payload.approved_on || new Date().toISOString().split("T")[0]) : null,
+          payload.approval_status === "approved" ? payload.approval_method : null,
+          payload.remarks.trim(),
+          payload.id,
+        ]
+      );
+
+      const updated = dbGet("SELECT * FROM designs WHERE id = ?", [payload.id]);
+      recordAudit("design", payload.id, `approval_${payload.approval_status}`, payload.callerUsername, oldDesign, updated);
+      return updated;
+    })
+  );
+
+  /** Open design file in native OS viewer (PDF or high-res image). */
+  ipcMain.handle(
+    "designs:open-file",
+    safe(async (payload: { id: number }) => {
+      const design = dbGet("SELECT file_path FROM designs WHERE id = ?", [payload.id]);
+      if (!design || !fs.existsSync(design.file_path)) {
+        throw new Error("File not found on disk.");
+      }
+      await shell.openPath(design.file_path);
+      return true;
+    })
+  );
+
+  // ── Payments ──────────────────────────────────────────────────────────────
+
+  const CAN_MANAGE_PAYMENTS = ["owner", "admin", "sales", "accountant"];
+
+  /** List payments. */
+  ipcMain.handle(
+    "payments:list",
+    safe((payload?: { order_id?: number; customer_id?: number }) => {
+      let sql = `
+        SELECT p.*, c.name AS customer_name, o.order_number, o.total AS order_total
+        FROM payments p
+        JOIN customers c ON c.id = p.customer_id
+        JOIN orders o ON o.id = p.order_id
+      `;
+      const params: any[] = [];
+      if (payload?.order_id) {
+        sql += " WHERE p.order_id = ?";
+        params.push(payload.order_id);
+      } else if (payload?.customer_id) {
+        sql += " WHERE p.customer_id = ?";
+        params.push(payload.customer_id);
+      }
+      sql += " ORDER BY p.id DESC";
+      return dbAll(sql, params);
+    })
+  );
+
+  /** Record a payment. */
+  ipcMain.handle(
+    "payments:create",
+    safe((payload: {
+      order_id: number;
+      customer_id: number;
+      amount: number;
+      payment_date: string;
+      mode: string;
+      reference_number?: string;
+      notes?: string;
+      overpayment_reason?: string;
+      callerRole: string;
+      callerUsername: string;
+    }) => {
+      if (!CAN_MANAGE_PAYMENTS.includes(payload.callerRole)) {
+        throw new Error("Permission denied: You do not have permission to record payments.");
+      }
+
+      if (!payload.amount || payload.amount <= 0) {
+        throw new Error("Payment amount must be greater than zero.");
+      }
+
+      const order = dbGet("SELECT id, order_number, total, customer_id FROM orders WHERE id = ?", [payload.order_id]);
+      if (!order) throw new Error("Order not found.");
+
+      const paidRow = dbGet(
+        "SELECT COALESCE(SUM(amount), 0) AS total_paid FROM payments WHERE order_id = ? AND is_cancelled = 0",
+        [payload.order_id]
+      );
+      const currentPaid = Number(paidRow?.total_paid ?? 0);
+      const remainingBalance = Math.max(0, Number(order.total || 0) - currentPaid);
+
+      if (payload.amount > remainingBalance + 0.01) {
+        // Overpayment check
+        if (payload.callerRole !== "owner") {
+          throw new Error(
+            `Payment amount (₹${payload.amount}) exceeds remaining balance (₹${remainingBalance.toFixed(2)}). Only the owner can approve an overpayment.`
+          );
+        }
+        if (!payload.overpayment_reason?.trim()) {
+          throw new Error("An approval reason is required when a payment exceeds the remaining order balance.");
+        }
+      }
+
+      dbRun(
+        `INSERT INTO payments (
+          order_id, customer_id, amount, payment_date, mode, reference_number, notes, received_by
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          payload.order_id,
+          payload.customer_id || order.customer_id,
+          payload.amount,
+          payload.payment_date || new Date().toISOString().split("T")[0],
+          payload.mode || "cash",
+          payload.reference_number?.trim() || null,
+          payload.notes?.trim() || (payload.overpayment_reason ? `Overpayment approval: ${payload.overpayment_reason.trim()}` : null),
+          payload.callerUsername,
+        ]
+      );
+
+      const inserted = dbGet("SELECT * FROM payments WHERE id = last_insert_rowid()");
+      recordAudit("payment", inserted.id, "create", payload.callerUsername, null, {
+        order_number: order.order_number,
+        amount: payload.amount,
+        mode: payload.mode,
+      });
+
+      return inserted;
+    })
+  );
+
+  /** Cancel a payment (wrong entry). */
+  ipcMain.handle(
+    "payments:cancel",
+    safe((payload: { id: number; cancel_reason: string; callerRole: string; callerUsername: string }) => {
+      if (!CAN_MANAGE_PAYMENTS.includes(payload.callerRole)) {
+        throw new Error("Permission denied: You do not have permission to cancel payments.");
+      }
+
+      if (!payload.cancel_reason?.trim()) {
+        throw new Error("A cancellation reason is required.");
+      }
+
+      const oldPayment = dbGet("SELECT * FROM payments WHERE id = ?", [payload.id]);
+      if (!oldPayment) throw new Error("Payment record not found.");
+      if (oldPayment.is_cancelled === 1) throw new Error("This payment is already cancelled.");
+
+      dbRun(
+        `UPDATE payments SET
+          is_cancelled = 1, cancel_reason = ?, cancelled_by = ?, cancelled_at = datetime('now')
+         WHERE id = ?`,
+        [payload.cancel_reason.trim(), payload.callerUsername, payload.id]
+      );
+
+      recordAudit("payment", payload.id, "cancel", payload.callerUsername, oldPayment, {
+        is_cancelled: 1,
+        cancel_reason: payload.cancel_reason,
+      });
+
+      return true;
+    })
+  );
+
+  // ── Invoices ──────────────────────────────────────────────────────────────
+
+  const CAN_MANAGE_INVOICES = ["owner", "admin", "sales", "accountant"];
+
+  function nextInvoiceNumber(): string {
+    const row = dbGet("SELECT COUNT(*) AS cnt FROM invoices");
+    const n = ((row?.cnt as number) ?? 0) + 1;
+    return `INV-${String(n).padStart(4, "0")}`;
+  }
+
+  /** List invoices. */
+  ipcMain.handle(
+    "invoices:list",
+    safe((payload?: { order_id?: number; customer_id?: number }) => {
+      let sql = `
+        SELECT inv.*, c.name AS customer_name, o.order_number
+        FROM invoices inv
+        JOIN customers c ON c.id = inv.customer_id
+        JOIN orders o ON o.id = inv.order_id
+      `;
+      const params: any[] = [];
+      if (payload?.order_id) {
+        sql += " WHERE inv.order_id = ?";
+        params.push(payload.order_id);
+      } else if (payload?.customer_id) {
+        sql += " WHERE inv.customer_id = ?";
+        params.push(payload.customer_id);
+      }
+      sql += " ORDER BY inv.id DESC";
+      return dbAll(sql, params);
+    })
+  );
+
+  /** Get single invoice with items, customer details, and payment summary. */
+  ipcMain.handle(
+    "invoices:get",
+    safe((payload: { id: number }) => {
+      const inv = dbGet(
+        `SELECT inv.*, c.name AS customer_name, c.billing_address, c.gst_number, c.phone, o.order_number
+         FROM invoices inv
+         JOIN customers c ON c.id = inv.customer_id
+         JOIN orders o ON o.id = inv.order_id
+         WHERE inv.id = ?`,
+        [payload.id]
+      );
+      if (!inv) throw new Error("Invoice not found.");
+
+      inv.items = dbAll(
+        "SELECT * FROM invoice_items WHERE invoice_id = ? ORDER BY sort_order ASC",
+        [inv.id]
+      );
+
+      // Attach payments on this order
+      const paidRow = dbGet(
+        "SELECT COALESCE(SUM(amount), 0) AS total_paid FROM payments WHERE order_id = ? AND is_cancelled = 0",
+        [inv.order_id]
+      );
+      const paid = Number(paidRow?.total_paid ?? 0);
+      inv.amount_paid = paid;
+      inv.balance_due = Math.max(0, Number(inv.total || 0) - paid);
+
+      return inv;
+    })
+  );
+
+  /** Generate an invoice from order. */
+  ipcMain.handle(
+    "invoices:create",
+    safe((payload: {
+      order_id: number;
+      customer_id: number;
+      type?: "advance" | "partial" | "final";
+      date?: string;
+      subtotal?: number;
+      discount?: number;
+      tax_percent?: number;
+      notes?: string;
+      items: Array<{
+        description: string;
+        specification?: string;
+        quantity: number;
+        rate: number;
+        line_total: number;
+      }>;
+      callerRole: string;
+      callerUsername: string;
+    }) => {
+      if (!CAN_MANAGE_INVOICES.includes(payload.callerRole)) {
+        throw new Error("Permission denied: You do not have permission to generate invoices.");
+      }
+
+      if (!payload.items || payload.items.length === 0) {
+        throw new Error("Invoice must contain at least one item.");
+      }
+
+      const subtotal = payload.subtotal ?? payload.items.reduce((s, it) => s + it.line_total, 0);
+      const discount = payload.discount || 0;
+      const discountAmt = (subtotal * discount) / 100;
+      const taxPercent = payload.tax_percent || 0;
+      const taxAmount = ((subtotal - discountAmt) * taxPercent) / 100;
+      const total = subtotal - discountAmt + taxAmount;
+
+      const invNum = nextInvoiceNumber();
+
+      dbRun(
+        `INSERT INTO invoices (
+          invoice_number, order_id, customer_id, date, subtotal, discount,
+          tax_percent, tax_amount, total, type, status, notes, created_by
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'issued', ?, ?)`,
+        [
+          invNum,
+          payload.order_id,
+          payload.customer_id,
+          payload.date || new Date().toISOString().split("T")[0],
+          subtotal,
+          discount,
+          taxPercent,
+          taxAmount,
+          total,
+          payload.type || "final",
+          payload.notes?.trim() || null,
+          payload.callerUsername,
+        ]
+      );
+
+      const inserted = dbGet("SELECT * FROM invoices WHERE id = last_insert_rowid()");
+      if (!inserted) throw new Error("Failed to insert invoice.");
+
+      payload.items.forEach((item, idx) => {
+        dbRun(
+          `INSERT INTO invoice_items (
+            invoice_id, description, specification, quantity, rate, line_total, sort_order
+          ) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+          [
+            inserted.id,
+            item.description,
+            item.specification || null,
+            item.quantity,
+            item.rate,
+            item.line_total,
+            idx,
+          ]
+        );
+      });
+
+      recordAudit("invoice", inserted.id, "create", payload.callerUsername, null, {
+        invoice_number: invNum,
+        order_id: payload.order_id,
+        total,
+      });
+
+      inserted.items = dbAll("SELECT * FROM invoice_items WHERE invoice_id = ?", [inserted.id]);
+      return inserted;
+    })
+  );
+
+  /** Cancel an invoice. Only the owner can cancel invoices. */
+  ipcMain.handle(
+    "invoices:cancel",
+    safe((payload: { id: number; cancel_reason: string; callerRole: string; callerUsername: string }) => {
+      if (payload.callerRole !== "owner") {
+        throw new Error("Permission denied: Only the owner can cancel an issued invoice.");
+      }
+
+      if (!payload.cancel_reason?.trim()) {
+        throw new Error("A cancellation reason is required.");
+      }
+
+      const oldInv = dbGet("SELECT * FROM invoices WHERE id = ?", [payload.id]);
+      if (!oldInv) throw new Error("Invoice not found.");
+      if (oldInv.status === "cancelled") throw new Error("This invoice is already cancelled.");
+
+      dbRun(
+        `UPDATE invoices SET
+          status = 'cancelled', cancel_reason = ?, cancelled_by = ?, cancelled_at = datetime('now')
+         WHERE id = ?`,
+        [payload.cancel_reason.trim(), payload.callerUsername, payload.id]
+      );
+
+      recordAudit("invoice", payload.id, "cancel", payload.callerUsername, oldInv, {
+        status: "cancelled",
+        cancel_reason: payload.cancel_reason,
+      });
+
+      return true;
+    })
+  );
+
+  // ── Dues & Accounts ───────────────────────────────────────────────────────
+
+  /** Get customers with unpaid balances sorted by oldest unpaid first, with days overdue. */
+  ipcMain.handle(
+    "accounts:get-dues",
+    safe(() => {
+      // Find all customers who have orders
+      const customers = dbAll("SELECT id, name, company, phone FROM customers WHERE active = 1");
+      const duesList: any[] = [];
+      let totalOutstandingAll = 0;
+      let totalCollectedAll = 0;
+
+      const today = new Date().toISOString().split("T")[0];
+      const todayMs = new Date(today).getTime();
+
+      for (const c of customers) {
+        // Total orders value
+        const orderRow = dbGet(
+          "SELECT COALESCE(SUM(total), 0) AS total_orders FROM orders WHERE customer_id = ? AND status != 'cancelled'",
+          [c.id]
+        );
+        const totalOrders = Number(orderRow?.total_orders ?? 0);
+
+        // Total payments
+        const payRow = dbGet(
+          "SELECT COALESCE(SUM(amount), 0) AS total_payments FROM payments WHERE customer_id = ? AND is_cancelled = 0",
+          [c.id]
+        );
+        const totalPaid = Number(payRow?.total_payments ?? 0);
+        totalCollectedAll += totalPaid;
+
+        const balance = Math.max(0, totalOrders - totalPaid);
+
+        if (balance > 0.01) {
+          totalOutstandingAll += balance;
+
+          // Find oldest unpaid order date
+          const oldestOrder = dbGet(
+            `SELECT order_date, due_date FROM orders
+             WHERE customer_id = ? AND status != 'cancelled' AND status != 'closed'
+             ORDER BY order_date ASC LIMIT 1`,
+            [c.id]
+          );
+
+          const oldestDate = oldestOrder?.due_date || oldestOrder?.order_date || today;
+          const oldestMs = new Date(oldestDate).getTime();
+          const daysOverdue = Math.max(0, Math.floor((todayMs - oldestMs) / (1000 * 60 * 60 * 24)));
+
+          duesList.push({
+            customer_id: c.id,
+            name: c.name,
+            company: c.company,
+            phone: c.phone,
+            total_orders: totalOrders,
+            total_paid: totalPaid,
+            balance,
+            oldest_date: oldestDate,
+            days_overdue: daysOverdue,
+          });
+        }
+      }
+
+      // Sort oldest first (highest days_overdue first, or oldest_date ASC)
+      duesList.sort((a, b) => b.days_overdue - a.days_overdue);
+
+      const invRow = dbGet("SELECT COUNT(*) AS total_invoices FROM invoices WHERE status != 'cancelled'");
+
+      return {
+        dues: duesList,
+        summary: {
+          total_outstanding: totalOutstandingAll,
+          total_collected: totalCollectedAll,
+          overdue_customers_count: duesList.length,
+          total_invoices: Number(invRow?.total_invoices ?? 0),
+        },
+      };
+    })
+  );
+
+  /** Get outstanding balance and ledger for a single customer. */
+  ipcMain.handle(
+    "customers:get-balance",
+    safe((payload: { customer_id: number }) => {
+      const orderRow = dbGet(
+        "SELECT COALESCE(SUM(total), 0) AS total_orders FROM orders WHERE customer_id = ? AND status != 'cancelled'",
+        [payload.customer_id]
+      );
+      const payRow = dbGet(
+        "SELECT COALESCE(SUM(amount), 0) AS total_paid FROM payments WHERE customer_id = ? AND is_cancelled = 0",
+        [payload.customer_id]
+      );
+
+      const totalOrders = Number(orderRow?.total_orders ?? 0);
+      const totalPaid = Number(payRow?.total_payments ?? 0);
+      const balance = Math.max(0, totalOrders - totalPaid);
+
+      return {
+        total_orders: totalOrders,
+        total_paid: totalPaid,
+        balance,
+      };
     })
   );
 

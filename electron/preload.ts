@@ -45,6 +45,23 @@ const ALLOWED_INVOKE_CHANNELS = [
   "orders:create",
   "orders:convert-from-quotation",
   "orders:update-status",
+  // Designs
+  "designs:list",
+  "designs:upload",
+  "designs:update-approval",
+  "designs:open-file",
+  // Payments
+  "payments:list",
+  "payments:create",
+  "payments:cancel",
+  // Invoices
+  "invoices:list",
+  "invoices:get",
+  "invoices:create",
+  "invoices:cancel",
+  // Accounts & Dues
+  "accounts:get-dues",
+  "customers:get-balance",
   // Backup
   "backup:now",
   // App info

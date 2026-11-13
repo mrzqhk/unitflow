@@ -23,6 +23,7 @@ import CustomersScreen from "../screens/CustomersScreen";
 import ProductsScreen  from "../screens/ProductsScreen";
 import QuotationsScreen from "../screens/QuotationsScreen";
 import OrdersScreen    from "../screens/OrdersScreen";
+import AccountsScreen  from "../screens/AccountsScreen";
 
 // Placeholder component for screens not yet built
 function ComingSoon({ name }: { name: string }) {
@@ -49,7 +50,7 @@ function ScreenRenderer({ screen }: { screen: Screen }) {
     case "production": return <ComingSoon name="Production" />;
     case "store":      return <ComingSoon name="Store" />;
     case "delivery":   return <ComingSoon name="Delivery" />;
-    case "accounts":   return <ComingSoon name="Accounts" />;
+    case "accounts":   return <AccountsScreen />;
     default:           return <DashboardScreen />;
   }
 }

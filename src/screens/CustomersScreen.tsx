@@ -37,8 +37,8 @@ import {
   Check,
 } from "lucide-react";
 import { useApp } from "../context/AppContext";
-import { customersApi, quotationsApi, ordersApi } from "../lib/api";
-import { Customer, CustomerType, Quotation, Order } from "../types";
+import { customersApi, quotationsApi, ordersApi, paymentsApi } from "../lib/api";
+import { Customer, CustomerType, Quotation, Order, Payment, CustomerBalance } from "../types";
 import { canManageCustomers } from "../lib/permissions";
 import { cn } from "../lib/utils";
 
@@ -471,6 +471,12 @@ function CustomerDetailView({
 
   const [quotations, setQuotations] = useState<Quotation[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
+  const [payments, setPayments] = useState<Payment[]>([]);
+  const [balanceInfo, setBalanceInfo] = useState<CustomerBalance>({
+    total_billed: 0,
+    total_paid: 0,
+    outstanding_balance: 0,
+  });
   const [loadingRecords, setLoadingRecords] = useState(false);
 
   useEffect(() => {
@@ -479,10 +485,18 @@ function CustomerDetailView({
     Promise.all([
       quotationsApi.list(customer.id).catch(() => []),
       ordersApi.list(customer.id, currentUser?.role).catch(() => []),
-    ]).then(([qList, oList]) => {
+      paymentsApi.list(undefined, customer.id).catch(() => []),
+      customersApi.getBalance(customer.id).catch(() => ({
+        total_billed: 0,
+        total_paid: 0,
+        outstanding_balance: 0,
+      })),
+    ]).then(([qList, oList, pList, bal]) => {
       if (active) {
         setQuotations(qList);
         setOrders(oList);
+        setPayments(pList);
+        setBalanceInfo(bal);
         setLoadingRecords(false);
       }
     });
@@ -561,7 +575,7 @@ function CustomerDetailView({
           </div>
 
           {/* Quick Metrics */}
-          <div className="flex items-center gap-6 bg-slate-50 px-5 py-3 rounded-xl border border-slate-100">
+          <div className="flex flex-wrap items-center gap-6 bg-slate-50 px-5 py-3 rounded-xl border border-slate-100">
             <div>
               <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Credit Limit</p>
               <p className="text-lg font-bold text-slate-800">
@@ -572,6 +586,21 @@ function CustomerDetailView({
             <div>
               <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Type</p>
               <p className="text-lg font-bold capitalize text-slate-800">{customer.customer_type}</p>
+            </div>
+            <div className="h-8 w-px bg-slate-200" />
+            <div>
+              <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Outstanding Due</p>
+              <p
+                className={cn(
+                  "text-lg font-bold",
+                  balanceInfo.outstanding_balance > 0 ? "text-rose-600" : "text-emerald-600"
+                )}
+              >
+                ₹{Number(balanceInfo.outstanding_balance || 0).toLocaleString("en-IN", {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2,
+                })}
+              </p>
             </div>
           </div>
         </div>
@@ -826,17 +855,125 @@ function CustomerDetailView({
         </div>
       )}
 
-      {/* Tab 4: Payments (Placeholder) */}
+      {/* Tab 4: Payments (Phase 4) */}
       {activeTab === "payments" && (
-        <div className="bg-white rounded-2xl border border-slate-100 p-12 text-center flex flex-col items-center justify-center">
-          <div className="w-16 h-16 rounded-2xl bg-emerald-50 border border-emerald-100 flex items-center justify-center text-emerald-600 mb-4">
-            <CreditCard className="w-8 h-8" />
+        <div className="space-y-6">
+          {/* Summary Cards */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
+              <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">
+                {t("accounts.total_billed")}
+              </p>
+              <p className="text-2xl font-bold text-slate-800 mt-1">
+                ₹{Number(balanceInfo.total_billed || 0).toLocaleString("en-IN", {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2,
+                })}
+              </p>
+            </div>
+            <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
+              <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">
+                {t("accounts.total_paid")}
+              </p>
+              <p className="text-2xl font-bold text-emerald-600 mt-1">
+                ₹{Number(balanceInfo.total_paid || 0).toLocaleString("en-IN", {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2,
+                })}
+              </p>
+            </div>
+            <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
+              <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">
+                {t("accounts.balance_due")}
+              </p>
+              <p
+                className={cn(
+                  "text-2xl font-bold mt-1",
+                  balanceInfo.outstanding_balance > 0 ? "text-rose-600" : "text-slate-700"
+                )}
+              >
+                ₹{Number(balanceInfo.outstanding_balance || 0).toLocaleString("en-IN", {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2,
+                })}
+              </p>
+            </div>
           </div>
-          <h3 className="text-lg font-bold text-slate-800">{t("customers.payments_tab")}</h3>
-          <p className="text-sm text-slate-500 max-w-md mt-1">{t("customers.empty_payments")}</p>
-          <span className="mt-4 px-3 py-1 rounded-full text-xs font-semibold bg-slate-100 text-slate-600">
-            Phase 8 Module
-          </span>
+
+          {/* Payments Table */}
+          <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
+            {loadingRecords ? (
+              <div className="flex items-center justify-center py-16 text-slate-400">
+                <Loader2 className="w-6 h-6 animate-spin mr-2" />
+                <span>{t("general.loading")}</span>
+              </div>
+            ) : payments.length === 0 ? (
+              <div className="p-12 text-center flex flex-col items-center justify-center">
+                <div className="w-16 h-16 rounded-2xl bg-emerald-50 border border-emerald-100 flex items-center justify-center text-emerald-600 mb-4">
+                  <CreditCard className="w-8 h-8" />
+                </div>
+                <h3 className="text-lg font-bold text-slate-800">{t("customers.payments_tab")}</h3>
+                <p className="text-sm text-slate-500 max-w-md mt-1">{t("customers.empty_payments")}</p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm text-left">
+                  <thead>
+                    <tr className="border-b border-slate-100 bg-slate-50/70 text-slate-500 text-xs font-semibold uppercase tracking-wider">
+                      <th className="px-5 py-3.5">#</th>
+                      <th className="px-5 py-3.5">{t("payments.date")}</th>
+                      <th className="px-5 py-3.5">{t("orders.number")}</th>
+                      <th className="px-5 py-3.5">{t("payments.mode")}</th>
+                      <th className="px-5 py-3.5">{t("payments.reference_number")}</th>
+                      <th className="px-5 py-3.5 text-right">{t("payments.amount")}</th>
+                      <th className="px-5 py-3.5">{t("payments.received_by")}</th>
+                      <th className="px-5 py-3.5">{t("payments.notes")}</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-50">
+                    {payments.map((p, idx) => {
+                      const isCanc = p.cancelled === 1;
+                      return (
+                        <tr
+                          key={p.id}
+                          className={cn(
+                            "transition",
+                            isCanc
+                              ? "bg-slate-50/70 text-slate-400 line-through"
+                              : "hover:bg-slate-50/50 text-slate-700"
+                          )}
+                        >
+                          <td className="px-5 py-4 font-mono text-xs text-slate-400">{idx + 1}</td>
+                          <td className="px-5 py-4 text-xs font-medium">{p.payment_date}</td>
+                          <td className="px-5 py-4 font-mono text-xs font-semibold text-amber-700">
+                            {p.order_number || (p.order_id ? `OD #${p.order_id}` : "—")}
+                          </td>
+                          <td className="px-5 py-4 capitalize text-xs">{p.mode}</td>
+                          <td className="px-5 py-4 font-mono text-xs">{p.reference_number || "—"}</td>
+                          <td className="px-5 py-4 text-right font-bold text-slate-900">
+                            ₹{Number(p.amount || 0).toLocaleString("en-IN", {
+                              minimumFractionDigits: 2,
+                              maximumFractionDigits: 2,
+                            })}
+                          </td>
+                          <td className="px-5 py-4 text-xs">{p.received_by}</td>
+                          <td className="px-5 py-4 text-xs">
+                            {isCanc ? (
+                              <span className="text-rose-600 no-underline font-semibold block text-xs">
+                                Cancelled: {p.cancel_reason}
+                              </span>
+                            ) : (
+                              p.notes || "—"
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
         </div>
       )}
     </div>

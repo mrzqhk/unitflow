@@ -4,16 +4,316 @@
 
 ---
 
+## 🧪 How to Test Phase 4: Design, Payments & Invoices
+
+### 1. Test Design Upload & Approval
+
+1. Launch the app: `npm run dev`
+2. Log in as **owner**.
+3. Go to **Orders** → open any order (e.g. `OD-0001`).
+4. Click the **Design** tab.
+5. Click **Upload Design** → pick any image (JPG/PNG) or PDF file from your computer.
+6. After upload, you'll see it listed as **v1** with "Latest" badge and status "Pending".
+7. Try clicking **Update Status → In Production**: a red banner appears blocking it — **Rule 4 in action**.
+8. Now click **Mark Approved** on the design → enter:
+   - Approved By Name: `Rajan K`
+   - Method: `WhatsApp`
+   - Remarks: `Customer confirmed via WhatsApp`
+9. Try advancing to In Production again — it should succeed now.
+10. Upload another file → it becomes **v2** (Latest), and the old approval still shows in history.
+
+### 2. Test Payments
+
+1. Open an order that is in `confirmed` status.
+2. Click the **Payments** tab.
+3. Notice the summary cards: Total, Paid (₹0.00), Balance (full amount).
+4. Click **Record Payment**:
+   - Enter an amount *less than* the balance (e.g. ₹500 for a ₹2000 order).
+   - Mode: UPI, Reference: `TXN123`.
+   - Save — payment status badge changes to **Advance Paid**.
+5. Record another payment for the remaining balance → status becomes **Paid**.
+6. Test overpayment: enter an amount *greater* than balance.
+   - As a non-owner: you'll see a block message.
+   - As owner: you'll see a reason field — enter a reason and save.
+7. Cancel a payment: click the ⊗ icon next to a payment row → provide reason. It appears struck-through.
+
+### 3. Test Invoice Generation & PDF Print
+
+1. On the same order, Payments tab → click **Generate Invoice**.
+2. Select Type: `Final`, Tax: `18%` (GST), adjust discount if needed → preview the calculated totals.
+3. Click Generate → the invoice (`INV-0001`) appears in the Invoices list.
+4. Click the 🖨 button → opens a formatted print-preview window in English. Click Print.
+5. Click **`മലയാളം`** button → opens the same invoice in Malayalam with the bundled Malayalam font. Click Print.
+6. Test Cancel Invoice (owner only): click ⊗ on the invoice → enter reason → it shows as Cancelled.
+
+### 4. Test Accounts / Dues Screen
+
+1. In the sidebar, click **Accounts** (`അക്കൗണ്ടുകൾ`).
+2. The overview cards show Total Outstanding, Total Collected, Total Invoiced, and Overdue customer count.
+3. The **Customer Dues** tab lists every customer with pending balances, oldest-first.
+4. Click **Record Payment** next to a customer → a Quick Pay modal opens to pick the specific order and record payment.
+5. Switch to the **Invoices** tab → see all invoices searchable by customer or invoice number.
+6. Use the print buttons to test English and Malayalam invoice printing.
+
+### 5. Test Customer Payments Tab
+
+1. Go to **Customers** → click on a customer who has orders with payments.
+2. Click the **Payments** tab.
+3. You'll see the balance summary (Total Billed, Total Paid, Outstanding Due) and a table of all payments for that customer across all orders.
+4. The Outstanding Due also shows in the hero metric card at the top of the customer profile.
+
+---
+
 ## 🛠 Tech Stack
 
 | Component | Technology | Rationale |
-|---|---|---|
+|---
+
+## 🧪 How to Test Phase 4: Design, Payments & Invoices
+
+### 1. Test Design Upload & Approval
+
+1. Launch the app: `npm run dev`
+2. Log in as **owner**.
+3. Go to **Orders** → open any order (e.g. `OD-0001`).
+4. Click the **Design** tab.
+5. Click **Upload Design** → pick any image (JPG/PNG) or PDF file from your computer.
+6. After upload, you'll see it listed as **v1** with "Latest" badge and status "Pending".
+7. Try clicking **Update Status → In Production**: a red banner appears blocking it — **Rule 4 in action**.
+8. Now click **Mark Approved** on the design → enter:
+   - Approved By Name: `Rajan K`
+   - Method: `WhatsApp`
+   - Remarks: `Customer confirmed via WhatsApp`
+9. Try advancing to In Production again — it should succeed now.
+10. Upload another file → it becomes **v2** (Latest), and the old approval still shows in history.
+
+### 2. Test Payments
+
+1. Open an order that is in `confirmed` status.
+2. Click the **Payments** tab.
+3. Notice the summary cards: Total, Paid (₹0.00), Balance (full amount).
+4. Click **Record Payment**:
+   - Enter an amount *less than* the balance (e.g. ₹500 for a ₹2000 order).
+   - Mode: UPI, Reference: `TXN123`.
+   - Save — payment status badge changes to **Advance Paid**.
+5. Record another payment for the remaining balance → status becomes **Paid**.
+6. Test overpayment: enter an amount *greater* than balance.
+   - As a non-owner: you'll see a block message.
+   - As owner: you'll see a reason field — enter a reason and save.
+7. Cancel a payment: click the ⊗ icon next to a payment row → provide reason. It appears struck-through.
+
+### 3. Test Invoice Generation & PDF Print
+
+1. On the same order, Payments tab → click **Generate Invoice**.
+2. Select Type: `Final`, Tax: `18%` (GST), adjust discount if needed → preview the calculated totals.
+3. Click Generate → the invoice (`INV-0001`) appears in the Invoices list.
+4. Click the 🖨 button → opens a formatted print-preview window in English. Click Print.
+5. Click **`മലയാളം`** button → opens the same invoice in Malayalam with the bundled Malayalam font. Click Print.
+6. Test Cancel Invoice (owner only): click ⊗ on the invoice → enter reason → it shows as Cancelled.
+
+### 4. Test Accounts / Dues Screen
+
+1. In the sidebar, click **Accounts** (`അക്കൗണ്ടുകൾ`).
+2. The overview cards show Total Outstanding, Total Collected, Total Invoiced, and Overdue customer count.
+3. The **Customer Dues** tab lists every customer with pending balances, oldest-first.
+4. Click **Record Payment** next to a customer → a Quick Pay modal opens to pick the specific order and record payment.
+5. Switch to the **Invoices** tab → see all invoices searchable by customer or invoice number.
+6. Use the print buttons to test English and Malayalam invoice printing.
+
+### 5. Test Customer Payments Tab
+
+1. Go to **Customers** → click on a customer who has orders with payments.
+2. Click the **Payments** tab.
+3. You'll see the balance summary (Total Billed, Total Paid, Outstanding Due) and a table of all payments for that customer across all orders.
+4. The Outstanding Due also shows in the hero metric card at the top of the customer profile.
+
+---|---
+
+## 🧪 How to Test Phase 4: Design, Payments & Invoices
+
+### 1. Test Design Upload & Approval
+
+1. Launch the app: `npm run dev`
+2. Log in as **owner**.
+3. Go to **Orders** → open any order (e.g. `OD-0001`).
+4. Click the **Design** tab.
+5. Click **Upload Design** → pick any image (JPG/PNG) or PDF file from your computer.
+6. After upload, you'll see it listed as **v1** with "Latest" badge and status "Pending".
+7. Try clicking **Update Status → In Production**: a red banner appears blocking it — **Rule 4 in action**.
+8. Now click **Mark Approved** on the design → enter:
+   - Approved By Name: `Rajan K`
+   - Method: `WhatsApp`
+   - Remarks: `Customer confirmed via WhatsApp`
+9. Try advancing to In Production again — it should succeed now.
+10. Upload another file → it becomes **v2** (Latest), and the old approval still shows in history.
+
+### 2. Test Payments
+
+1. Open an order that is in `confirmed` status.
+2. Click the **Payments** tab.
+3. Notice the summary cards: Total, Paid (₹0.00), Balance (full amount).
+4. Click **Record Payment**:
+   - Enter an amount *less than* the balance (e.g. ₹500 for a ₹2000 order).
+   - Mode: UPI, Reference: `TXN123`.
+   - Save — payment status badge changes to **Advance Paid**.
+5. Record another payment for the remaining balance → status becomes **Paid**.
+6. Test overpayment: enter an amount *greater* than balance.
+   - As a non-owner: you'll see a block message.
+   - As owner: you'll see a reason field — enter a reason and save.
+7. Cancel a payment: click the ⊗ icon next to a payment row → provide reason. It appears struck-through.
+
+### 3. Test Invoice Generation & PDF Print
+
+1. On the same order, Payments tab → click **Generate Invoice**.
+2. Select Type: `Final`, Tax: `18%` (GST), adjust discount if needed → preview the calculated totals.
+3. Click Generate → the invoice (`INV-0001`) appears in the Invoices list.
+4. Click the 🖨 button → opens a formatted print-preview window in English. Click Print.
+5. Click **`മലയാളം`** button → opens the same invoice in Malayalam with the bundled Malayalam font. Click Print.
+6. Test Cancel Invoice (owner only): click ⊗ on the invoice → enter reason → it shows as Cancelled.
+
+### 4. Test Accounts / Dues Screen
+
+1. In the sidebar, click **Accounts** (`അക്കൗണ്ടുകൾ`).
+2. The overview cards show Total Outstanding, Total Collected, Total Invoiced, and Overdue customer count.
+3. The **Customer Dues** tab lists every customer with pending balances, oldest-first.
+4. Click **Record Payment** next to a customer → a Quick Pay modal opens to pick the specific order and record payment.
+5. Switch to the **Invoices** tab → see all invoices searchable by customer or invoice number.
+6. Use the print buttons to test English and Malayalam invoice printing.
+
+### 5. Test Customer Payments Tab
+
+1. Go to **Customers** → click on a customer who has orders with payments.
+2. Click the **Payments** tab.
+3. You'll see the balance summary (Total Billed, Total Paid, Outstanding Due) and a table of all payments for that customer across all orders.
+4. The Outstanding Due also shows in the hero metric card at the top of the customer profile.
+
+---|---
+
+## 🧪 How to Test Phase 4: Design, Payments & Invoices
+
+### 1. Test Design Upload & Approval
+
+1. Launch the app: `npm run dev`
+2. Log in as **owner**.
+3. Go to **Orders** → open any order (e.g. `OD-0001`).
+4. Click the **Design** tab.
+5. Click **Upload Design** → pick any image (JPG/PNG) or PDF file from your computer.
+6. After upload, you'll see it listed as **v1** with "Latest" badge and status "Pending".
+7. Try clicking **Update Status → In Production**: a red banner appears blocking it — **Rule 4 in action**.
+8. Now click **Mark Approved** on the design → enter:
+   - Approved By Name: `Rajan K`
+   - Method: `WhatsApp`
+   - Remarks: `Customer confirmed via WhatsApp`
+9. Try advancing to In Production again — it should succeed now.
+10. Upload another file → it becomes **v2** (Latest), and the old approval still shows in history.
+
+### 2. Test Payments
+
+1. Open an order that is in `confirmed` status.
+2. Click the **Payments** tab.
+3. Notice the summary cards: Total, Paid (₹0.00), Balance (full amount).
+4. Click **Record Payment**:
+   - Enter an amount *less than* the balance (e.g. ₹500 for a ₹2000 order).
+   - Mode: UPI, Reference: `TXN123`.
+   - Save — payment status badge changes to **Advance Paid**.
+5. Record another payment for the remaining balance → status becomes **Paid**.
+6. Test overpayment: enter an amount *greater* than balance.
+   - As a non-owner: you'll see a block message.
+   - As owner: you'll see a reason field — enter a reason and save.
+7. Cancel a payment: click the ⊗ icon next to a payment row → provide reason. It appears struck-through.
+
+### 3. Test Invoice Generation & PDF Print
+
+1. On the same order, Payments tab → click **Generate Invoice**.
+2. Select Type: `Final`, Tax: `18%` (GST), adjust discount if needed → preview the calculated totals.
+3. Click Generate → the invoice (`INV-0001`) appears in the Invoices list.
+4. Click the 🖨 button → opens a formatted print-preview window in English. Click Print.
+5. Click **`മലയാളം`** button → opens the same invoice in Malayalam with the bundled Malayalam font. Click Print.
+6. Test Cancel Invoice (owner only): click ⊗ on the invoice → enter reason → it shows as Cancelled.
+
+### 4. Test Accounts / Dues Screen
+
+1. In the sidebar, click **Accounts** (`അക്കൗണ്ടുകൾ`).
+2. The overview cards show Total Outstanding, Total Collected, Total Invoiced, and Overdue customer count.
+3. The **Customer Dues** tab lists every customer with pending balances, oldest-first.
+4. Click **Record Payment** next to a customer → a Quick Pay modal opens to pick the specific order and record payment.
+5. Switch to the **Invoices** tab → see all invoices searchable by customer or invoice number.
+6. Use the print buttons to test English and Malayalam invoice printing.
+
+### 5. Test Customer Payments Tab
+
+1. Go to **Customers** → click on a customer who has orders with payments.
+2. Click the **Payments** tab.
+3. You'll see the balance summary (Total Billed, Total Paid, Outstanding Due) and a table of all payments for that customer across all orders.
+4. The Outstanding Due also shows in the hero metric card at the top of the customer profile.
+
+---|
 | **Platform** | Electron 36 (Windows .exe) | Pure desktop app running offline on one PC |
 | **Frontend** | React 19 + TypeScript (Vite) | Fast modern UI, component modularity |
 | **Styling** | Tailwind CSS + Lucide Icons | Clean, readable, light-themed desktop design |
 | **Database** | SQLite via `sql.js` (WebAssembly) | Standalone local SQLite stored in `%APPDATA%\unitflow\unitflow.db` |
 | **Packaging** | `electron-builder` | Generates standalone Windows setup (`.exe` NSIS installer) |
 | **Internationalization** | Custom Context (`en` & `ml`) | English & Malayalam support switchable on the fly |
+
+---
+
+## 🧪 How to Test Phase 4: Design, Payments & Invoices
+
+### 1. Test Design Upload & Approval
+
+1. Launch the app: `npm run dev`
+2. Log in as **owner**.
+3. Go to **Orders** → open any order (e.g. `OD-0001`).
+4. Click the **Design** tab.
+5. Click **Upload Design** → pick any image (JPG/PNG) or PDF file from your computer.
+6. After upload, you'll see it listed as **v1** with "Latest" badge and status "Pending".
+7. Try clicking **Update Status → In Production**: a red banner appears blocking it — **Rule 4 in action**.
+8. Now click **Mark Approved** on the design → enter:
+   - Approved By Name: `Rajan K`
+   - Method: `WhatsApp`
+   - Remarks: `Customer confirmed via WhatsApp`
+9. Try advancing to In Production again — it should succeed now.
+10. Upload another file → it becomes **v2** (Latest), and the old approval still shows in history.
+
+### 2. Test Payments
+
+1. Open an order that is in `confirmed` status.
+2. Click the **Payments** tab.
+3. Notice the summary cards: Total, Paid (₹0.00), Balance (full amount).
+4. Click **Record Payment**:
+   - Enter an amount *less than* the balance (e.g. ₹500 for a ₹2000 order).
+   - Mode: UPI, Reference: `TXN123`.
+   - Save — payment status badge changes to **Advance Paid**.
+5. Record another payment for the remaining balance → status becomes **Paid**.
+6. Test overpayment: enter an amount *greater* than balance.
+   - As a non-owner: you'll see a block message.
+   - As owner: you'll see a reason field — enter a reason and save.
+7. Cancel a payment: click the ⊗ icon next to a payment row → provide reason. It appears struck-through.
+
+### 3. Test Invoice Generation & PDF Print
+
+1. On the same order, Payments tab → click **Generate Invoice**.
+2. Select Type: `Final`, Tax: `18%` (GST), adjust discount if needed → preview the calculated totals.
+3. Click Generate → the invoice (`INV-0001`) appears in the Invoices list.
+4. Click the 🖨 button → opens a formatted print-preview window in English. Click Print.
+5. Click **`മലയാളം`** button → opens the same invoice in Malayalam with the bundled Malayalam font. Click Print.
+6. Test Cancel Invoice (owner only): click ⊗ on the invoice → enter reason → it shows as Cancelled.
+
+### 4. Test Accounts / Dues Screen
+
+1. In the sidebar, click **Accounts** (`അക്കൗണ്ടുകൾ`).
+2. The overview cards show Total Outstanding, Total Collected, Total Invoiced, and Overdue customer count.
+3. The **Customer Dues** tab lists every customer with pending balances, oldest-first.
+4. Click **Record Payment** next to a customer → a Quick Pay modal opens to pick the specific order and record payment.
+5. Switch to the **Invoices** tab → see all invoices searchable by customer or invoice number.
+6. Use the print buttons to test English and Malayalam invoice printing.
+
+### 5. Test Customer Payments Tab
+
+1. Go to **Customers** → click on a customer who has orders with payments.
+2. Click the **Payments** tab.
+3. You'll see the balance summary (Total Billed, Total Paid, Outstanding Due) and a table of all payments for that customer across all orders.
+4. The Outstanding Due also shows in the hero metric card at the top of the customer profile.
 
 ---
 
@@ -32,6 +332,66 @@
 
 ---
 
+## 🧪 How to Test Phase 4: Design, Payments & Invoices
+
+### 1. Test Design Upload & Approval
+
+1. Launch the app: `npm run dev`
+2. Log in as **owner**.
+3. Go to **Orders** → open any order (e.g. `OD-0001`).
+4. Click the **Design** tab.
+5. Click **Upload Design** → pick any image (JPG/PNG) or PDF file from your computer.
+6. After upload, you'll see it listed as **v1** with "Latest" badge and status "Pending".
+7. Try clicking **Update Status → In Production**: a red banner appears blocking it — **Rule 4 in action**.
+8. Now click **Mark Approved** on the design → enter:
+   - Approved By Name: `Rajan K`
+   - Method: `WhatsApp`
+   - Remarks: `Customer confirmed via WhatsApp`
+9. Try advancing to In Production again — it should succeed now.
+10. Upload another file → it becomes **v2** (Latest), and the old approval still shows in history.
+
+### 2. Test Payments
+
+1. Open an order that is in `confirmed` status.
+2. Click the **Payments** tab.
+3. Notice the summary cards: Total, Paid (₹0.00), Balance (full amount).
+4. Click **Record Payment**:
+   - Enter an amount *less than* the balance (e.g. ₹500 for a ₹2000 order).
+   - Mode: UPI, Reference: `TXN123`.
+   - Save — payment status badge changes to **Advance Paid**.
+5. Record another payment for the remaining balance → status becomes **Paid**.
+6. Test overpayment: enter an amount *greater* than balance.
+   - As a non-owner: you'll see a block message.
+   - As owner: you'll see a reason field — enter a reason and save.
+7. Cancel a payment: click the ⊗ icon next to a payment row → provide reason. It appears struck-through.
+
+### 3. Test Invoice Generation & PDF Print
+
+1. On the same order, Payments tab → click **Generate Invoice**.
+2. Select Type: `Final`, Tax: `18%` (GST), adjust discount if needed → preview the calculated totals.
+3. Click Generate → the invoice (`INV-0001`) appears in the Invoices list.
+4. Click the 🖨 button → opens a formatted print-preview window in English. Click Print.
+5. Click **`മലയാളം`** button → opens the same invoice in Malayalam with the bundled Malayalam font. Click Print.
+6. Test Cancel Invoice (owner only): click ⊗ on the invoice → enter reason → it shows as Cancelled.
+
+### 4. Test Accounts / Dues Screen
+
+1. In the sidebar, click **Accounts** (`അക്കൗണ്ടുകൾ`).
+2. The overview cards show Total Outstanding, Total Collected, Total Invoiced, and Overdue customer count.
+3. The **Customer Dues** tab lists every customer with pending balances, oldest-first.
+4. Click **Record Payment** next to a customer → a Quick Pay modal opens to pick the specific order and record payment.
+5. Switch to the **Invoices** tab → see all invoices searchable by customer or invoice number.
+6. Use the print buttons to test English and Malayalam invoice printing.
+
+### 5. Test Customer Payments Tab
+
+1. Go to **Customers** → click on a customer who has orders with payments.
+2. Click the **Payments** tab.
+3. You'll see the balance summary (Total Billed, Total Paid, Outstanding Due) and a table of all payments for that customer across all orders.
+4. The Outstanding Due also shows in the hero metric card at the top of the customer profile.
+
+---
+
 ## 👥 Roles & Permissions Matrix
 
 The 8 roles configured in the database:
@@ -43,6 +403,66 @@ The 8 roles configured in the database:
 - `store`: Inventory, raw material issue, stock tracking, view products
 - `delivery`: Packaging verification, dispatch, customer delivery confirmation
 - `accountant`: Payments, invoices, accounts ledger, view customers and products
+
+---
+
+## 🧪 How to Test Phase 4: Design, Payments & Invoices
+
+### 1. Test Design Upload & Approval
+
+1. Launch the app: `npm run dev`
+2. Log in as **owner**.
+3. Go to **Orders** → open any order (e.g. `OD-0001`).
+4. Click the **Design** tab.
+5. Click **Upload Design** → pick any image (JPG/PNG) or PDF file from your computer.
+6. After upload, you'll see it listed as **v1** with "Latest" badge and status "Pending".
+7. Try clicking **Update Status → In Production**: a red banner appears blocking it — **Rule 4 in action**.
+8. Now click **Mark Approved** on the design → enter:
+   - Approved By Name: `Rajan K`
+   - Method: `WhatsApp`
+   - Remarks: `Customer confirmed via WhatsApp`
+9. Try advancing to In Production again — it should succeed now.
+10. Upload another file → it becomes **v2** (Latest), and the old approval still shows in history.
+
+### 2. Test Payments
+
+1. Open an order that is in `confirmed` status.
+2. Click the **Payments** tab.
+3. Notice the summary cards: Total, Paid (₹0.00), Balance (full amount).
+4. Click **Record Payment**:
+   - Enter an amount *less than* the balance (e.g. ₹500 for a ₹2000 order).
+   - Mode: UPI, Reference: `TXN123`.
+   - Save — payment status badge changes to **Advance Paid**.
+5. Record another payment for the remaining balance → status becomes **Paid**.
+6. Test overpayment: enter an amount *greater* than balance.
+   - As a non-owner: you'll see a block message.
+   - As owner: you'll see a reason field — enter a reason and save.
+7. Cancel a payment: click the ⊗ icon next to a payment row → provide reason. It appears struck-through.
+
+### 3. Test Invoice Generation & PDF Print
+
+1. On the same order, Payments tab → click **Generate Invoice**.
+2. Select Type: `Final`, Tax: `18%` (GST), adjust discount if needed → preview the calculated totals.
+3. Click Generate → the invoice (`INV-0001`) appears in the Invoices list.
+4. Click the 🖨 button → opens a formatted print-preview window in English. Click Print.
+5. Click **`മലയാളം`** button → opens the same invoice in Malayalam with the bundled Malayalam font. Click Print.
+6. Test Cancel Invoice (owner only): click ⊗ on the invoice → enter reason → it shows as Cancelled.
+
+### 4. Test Accounts / Dues Screen
+
+1. In the sidebar, click **Accounts** (`അക്കൗണ്ടുകൾ`).
+2. The overview cards show Total Outstanding, Total Collected, Total Invoiced, and Overdue customer count.
+3. The **Customer Dues** tab lists every customer with pending balances, oldest-first.
+4. Click **Record Payment** next to a customer → a Quick Pay modal opens to pick the specific order and record payment.
+5. Switch to the **Invoices** tab → see all invoices searchable by customer or invoice number.
+6. Use the print buttons to test English and Malayalam invoice printing.
+
+### 5. Test Customer Payments Tab
+
+1. Go to **Customers** → click on a customer who has orders with payments.
+2. Click the **Payments** tab.
+3. You'll see the balance summary (Total Billed, Total Paid, Outstanding Due) and a table of all payments for that customer across all orders.
+4. The Outstanding Due also shows in the hero metric card at the top of the customer profile.
 
 ---
 
@@ -66,6 +486,66 @@ The 8 roles configured in the database:
 
 ---
 
+## 🧪 How to Test Phase 4: Design, Payments & Invoices
+
+### 1. Test Design Upload & Approval
+
+1. Launch the app: `npm run dev`
+2. Log in as **owner**.
+3. Go to **Orders** → open any order (e.g. `OD-0001`).
+4. Click the **Design** tab.
+5. Click **Upload Design** → pick any image (JPG/PNG) or PDF file from your computer.
+6. After upload, you'll see it listed as **v1** with "Latest" badge and status "Pending".
+7. Try clicking **Update Status → In Production**: a red banner appears blocking it — **Rule 4 in action**.
+8. Now click **Mark Approved** on the design → enter:
+   - Approved By Name: `Rajan K`
+   - Method: `WhatsApp`
+   - Remarks: `Customer confirmed via WhatsApp`
+9. Try advancing to In Production again — it should succeed now.
+10. Upload another file → it becomes **v2** (Latest), and the old approval still shows in history.
+
+### 2. Test Payments
+
+1. Open an order that is in `confirmed` status.
+2. Click the **Payments** tab.
+3. Notice the summary cards: Total, Paid (₹0.00), Balance (full amount).
+4. Click **Record Payment**:
+   - Enter an amount *less than* the balance (e.g. ₹500 for a ₹2000 order).
+   - Mode: UPI, Reference: `TXN123`.
+   - Save — payment status badge changes to **Advance Paid**.
+5. Record another payment for the remaining balance → status becomes **Paid**.
+6. Test overpayment: enter an amount *greater* than balance.
+   - As a non-owner: you'll see a block message.
+   - As owner: you'll see a reason field — enter a reason and save.
+7. Cancel a payment: click the ⊗ icon next to a payment row → provide reason. It appears struck-through.
+
+### 3. Test Invoice Generation & PDF Print
+
+1. On the same order, Payments tab → click **Generate Invoice**.
+2. Select Type: `Final`, Tax: `18%` (GST), adjust discount if needed → preview the calculated totals.
+3. Click Generate → the invoice (`INV-0001`) appears in the Invoices list.
+4. Click the 🖨 button → opens a formatted print-preview window in English. Click Print.
+5. Click **`മലയാളം`** button → opens the same invoice in Malayalam with the bundled Malayalam font. Click Print.
+6. Test Cancel Invoice (owner only): click ⊗ on the invoice → enter reason → it shows as Cancelled.
+
+### 4. Test Accounts / Dues Screen
+
+1. In the sidebar, click **Accounts** (`അക്കൗണ്ടുകൾ`).
+2. The overview cards show Total Outstanding, Total Collected, Total Invoiced, and Overdue customer count.
+3. The **Customer Dues** tab lists every customer with pending balances, oldest-first.
+4. Click **Record Payment** next to a customer → a Quick Pay modal opens to pick the specific order and record payment.
+5. Switch to the **Invoices** tab → see all invoices searchable by customer or invoice number.
+6. Use the print buttons to test English and Malayalam invoice printing.
+
+### 5. Test Customer Payments Tab
+
+1. Go to **Customers** → click on a customer who has orders with payments.
+2. Click the **Payments** tab.
+3. You'll see the balance summary (Total Billed, Total Paid, Outstanding Due) and a table of all payments for that customer across all orders.
+4. The Outstanding Due also shows in the hero metric card at the top of the customer profile.
+
+---
+
 ### ✅ Phase 2: Customers and Products (COMPLETED)
 - [x] Database table `customers`: `name`, `company`, `phone`, `alternate_phone`, `email`, `billing_address`, `delivery_address`, `gst_number`, `customer_type`, `credit_limit`, `notes`, `active`, `created_by`, `updated_by`, timestamps
 - [x] Database table `products`: `name`, `category`, `unit`, `retail_price`, `wholesale_price`, `active`, `created_by`, `updated_by`, timestamps
@@ -79,6 +559,66 @@ The 8 roles configured in the database:
 - [x] Add/Edit Product modal: tiered quantity slabs editor (add/remove min qty and slab rate)
 - [x] Main-process security enforcement: only `owner`, `admin`, and `sales` can add/edit customers; only `owner` can set or edit product prices (locked in UI and rejected in IPC)
 - [x] English and Malayalam translations for all new screens, labels, and validation banners
+
+---
+
+## 🧪 How to Test Phase 4: Design, Payments & Invoices
+
+### 1. Test Design Upload & Approval
+
+1. Launch the app: `npm run dev`
+2. Log in as **owner**.
+3. Go to **Orders** → open any order (e.g. `OD-0001`).
+4. Click the **Design** tab.
+5. Click **Upload Design** → pick any image (JPG/PNG) or PDF file from your computer.
+6. After upload, you'll see it listed as **v1** with "Latest" badge and status "Pending".
+7. Try clicking **Update Status → In Production**: a red banner appears blocking it — **Rule 4 in action**.
+8. Now click **Mark Approved** on the design → enter:
+   - Approved By Name: `Rajan K`
+   - Method: `WhatsApp`
+   - Remarks: `Customer confirmed via WhatsApp`
+9. Try advancing to In Production again — it should succeed now.
+10. Upload another file → it becomes **v2** (Latest), and the old approval still shows in history.
+
+### 2. Test Payments
+
+1. Open an order that is in `confirmed` status.
+2. Click the **Payments** tab.
+3. Notice the summary cards: Total, Paid (₹0.00), Balance (full amount).
+4. Click **Record Payment**:
+   - Enter an amount *less than* the balance (e.g. ₹500 for a ₹2000 order).
+   - Mode: UPI, Reference: `TXN123`.
+   - Save — payment status badge changes to **Advance Paid**.
+5. Record another payment for the remaining balance → status becomes **Paid**.
+6. Test overpayment: enter an amount *greater* than balance.
+   - As a non-owner: you'll see a block message.
+   - As owner: you'll see a reason field — enter a reason and save.
+7. Cancel a payment: click the ⊗ icon next to a payment row → provide reason. It appears struck-through.
+
+### 3. Test Invoice Generation & PDF Print
+
+1. On the same order, Payments tab → click **Generate Invoice**.
+2. Select Type: `Final`, Tax: `18%` (GST), adjust discount if needed → preview the calculated totals.
+3. Click Generate → the invoice (`INV-0001`) appears in the Invoices list.
+4. Click the 🖨 button → opens a formatted print-preview window in English. Click Print.
+5. Click **`മലയാളം`** button → opens the same invoice in Malayalam with the bundled Malayalam font. Click Print.
+6. Test Cancel Invoice (owner only): click ⊗ on the invoice → enter reason → it shows as Cancelled.
+
+### 4. Test Accounts / Dues Screen
+
+1. In the sidebar, click **Accounts** (`അക്കൗണ്ടുകൾ`).
+2. The overview cards show Total Outstanding, Total Collected, Total Invoiced, and Overdue customer count.
+3. The **Customer Dues** tab lists every customer with pending balances, oldest-first.
+4. Click **Record Payment** next to a customer → a Quick Pay modal opens to pick the specific order and record payment.
+5. Switch to the **Invoices** tab → see all invoices searchable by customer or invoice number.
+6. Use the print buttons to test English and Malayalam invoice printing.
+
+### 5. Test Customer Payments Tab
+
+1. Go to **Customers** → click on a customer who has orders with payments.
+2. Click the **Payments** tab.
+3. You'll see the balance summary (Total Billed, Total Paid, Outstanding Due) and a table of all payments for that customer across all orders.
+4. The Outstanding Due also shows in the hero metric card at the top of the customer profile.
 
 ---
 
@@ -104,14 +644,232 @@ The 8 roles configured in the database:
 
 ---
 
+## 🧪 How to Test Phase 4: Design, Payments & Invoices
+
+### 1. Test Design Upload & Approval
+
+1. Launch the app: `npm run dev`
+2. Log in as **owner**.
+3. Go to **Orders** → open any order (e.g. `OD-0001`).
+4. Click the **Design** tab.
+5. Click **Upload Design** → pick any image (JPG/PNG) or PDF file from your computer.
+6. After upload, you'll see it listed as **v1** with "Latest" badge and status "Pending".
+7. Try clicking **Update Status → In Production**: a red banner appears blocking it — **Rule 4 in action**.
+8. Now click **Mark Approved** on the design → enter:
+   - Approved By Name: `Rajan K`
+   - Method: `WhatsApp`
+   - Remarks: `Customer confirmed via WhatsApp`
+9. Try advancing to In Production again — it should succeed now.
+10. Upload another file → it becomes **v2** (Latest), and the old approval still shows in history.
+
+### 2. Test Payments
+
+1. Open an order that is in `confirmed` status.
+2. Click the **Payments** tab.
+3. Notice the summary cards: Total, Paid (₹0.00), Balance (full amount).
+4. Click **Record Payment**:
+   - Enter an amount *less than* the balance (e.g. ₹500 for a ₹2000 order).
+   - Mode: UPI, Reference: `TXN123`.
+   - Save — payment status badge changes to **Advance Paid**.
+5. Record another payment for the remaining balance → status becomes **Paid**.
+6. Test overpayment: enter an amount *greater* than balance.
+   - As a non-owner: you'll see a block message.
+   - As owner: you'll see a reason field — enter a reason and save.
+7. Cancel a payment: click the ⊗ icon next to a payment row → provide reason. It appears struck-through.
+
+### 3. Test Invoice Generation & PDF Print
+
+1. On the same order, Payments tab → click **Generate Invoice**.
+2. Select Type: `Final`, Tax: `18%` (GST), adjust discount if needed → preview the calculated totals.
+3. Click Generate → the invoice (`INV-0001`) appears in the Invoices list.
+4. Click the 🖨 button → opens a formatted print-preview window in English. Click Print.
+5. Click **`മലയാളം`** button → opens the same invoice in Malayalam with the bundled Malayalam font. Click Print.
+6. Test Cancel Invoice (owner only): click ⊗ on the invoice → enter reason → it shows as Cancelled.
+
+### 4. Test Accounts / Dues Screen
+
+1. In the sidebar, click **Accounts** (`അക്കൗണ്ടുകൾ`).
+2. The overview cards show Total Outstanding, Total Collected, Total Invoiced, and Overdue customer count.
+3. The **Customer Dues** tab lists every customer with pending balances, oldest-first.
+4. Click **Record Payment** next to a customer → a Quick Pay modal opens to pick the specific order and record payment.
+5. Switch to the **Invoices** tab → see all invoices searchable by customer or invoice number.
+6. Use the print buttons to test English and Malayalam invoice printing.
+
+### 5. Test Customer Payments Tab
+
+1. Go to **Customers** → click on a customer who has orders with payments.
+2. Click the **Payments** tab.
+3. You'll see the balance summary (Total Billed, Total Paid, Outstanding Due) and a table of all payments for that customer across all orders.
+4. The Outstanding Due also shows in the hero metric card at the top of the customer profile.
+
+---
+
+### ✅ Phase 4: Design Approval, Payments & Invoices (COMPLETED)
+
+#### Design & Approval
+- [x] Database table `designs`: `order_id`, `version_number`, `file_path`, `file_name`, `thumbnail_data`, `uploaded_by`, `uploaded_at`, `approval_status` (pending/approved/revision_requested/rejected), `approved_by_name`, `approved_on`, `approval_method` (phone/WhatsApp/in person/email), `remarks`
+- [x] **Design Tab** on Order Detail: upload image or PDF files (copied to `%APPDATA%\unitflow\designs\`), thumbnail previews, full version history with "Latest" badge
+- [x] Approval actions: **Mark Approved** (captures approver name, date, method, remarks), **Request Revision**, **Reject** — each requires a remark
+- [x] **RULE 4 enforced in both main process AND UI**: an order cannot advance to `in_production` unless its latest design is `approved`; a red banner explains the block
+- [x] Design status badges shown on Order list tab strip for quick visibility
+
+#### Payments
+- [x] Database table `payments`: `order_id`, `customer_id`, `amount`, `payment_date`, `mode` (cash/UPI/bank transfer/cheque), `reference_number`, `notes`, `received_by`, `cancelled`, `cancel_reason`, `owner_approval_reason`
+- [x] **Payments Tab** on Order Detail: order total, paid amount, balance summary cards with payment status badge (Unpaid / Advance Paid / Partially Paid / Paid)
+- [x] Payment status auto-computed from actual payment records — never manually typed
+- [x] Payment status badge shown in Orders list table for instant overview
+- [x] **Overpayment protection**: only owner can exceed the balance; must provide a reason; non-owners see a clear block message
+- [x] **Payment cancellation** with mandatory reason — entry kept struck-through in records, never hard-deleted
+- [x] **Customer Detail Page** — Payments tab now shows all payments for that customer with balance summary (Total Billed, Total Paid, Outstanding Due); outstanding balance also shown in hero metric card
+
+#### Invoices
+- [x] Database tables `invoices` and `invoice_items`: `invoice_number` (auto `INV-0001`), `order_id`, `customer_id`, `date`, `subtotal`, `discount`, `tax_percent`, `tax_amount`, `total`, `type` (advance/partial/final), `status` (issued/cancelled), `cancel_reason`, `created_by`
+- [x] **Generate Invoice** button on Payments tab — copies order items and prices, allows choosing type, discount %, GST tax slab (0/5/12/18/28%)
+- [x] **Bilingual PDF Print**: pressing Print opens a formatted print-preview page (English or Malayalam) using bundled font stack (`Noto Sans Malayalam`, `Nirmala UI`, `Kartika`) with company header, customer details, items table, tax breakup, grand total, computer-generated footer
+- [x] **Invoice cancellation**: only owner can cancel an issued invoice; must provide reason; shown with cancelled status and reason note; create a new one to correct
+- [x] Invoice print buttons (English + `മലയാളം`) visible on each row in the Payments tab and in Accounts screen
+
+#### Accounts / Dues Screen
+- [x] New **Accounts** screen accessible via sidebar (owner, accountant, sales)
+- [x] **Overview metrics**: Total Outstanding (₹), Total Collected (₹), Total Invoiced (₹), Customers with Dues count
+- [x] **Customer Dues table**: customers with unpaid balances, sorted oldest-first, showing orders count, billed, paid, balance, and days overdue badge (red pill)
+- [x] **Quick Pay shortcut**: record a payment directly from the Dues table without navigating to the Order
+- [x] **Invoices Registry tab**: all invoices searchable by customer/invoice number/order, with English and Malayalam print buttons and owner cancel button
+
+#### Rules & Permissions (Phase 4)
+- [x] `sales` role now also has access to `accounts` screen (can record payments)
+- [x] All permissions enforced in main process (IPC handlers), not just UI
+- [x] Every design upload, approval action, payment, cancellation, and invoice write logged to `audit_log`
+- [x] English & Malayalam strings added for all new screens, modals, and badges
+
+---
+
+## 🧪 How to Test Phase 4: Design, Payments & Invoices
+
+### 1. Test Design Upload & Approval
+
+1. Launch the app: `npm run dev`
+2. Log in as **owner**.
+3. Go to **Orders** → open any order (e.g. `OD-0001`).
+4. Click the **Design** tab.
+5. Click **Upload Design** → pick any image (JPG/PNG) or PDF file from your computer.
+6. After upload, you'll see it listed as **v1** with "Latest" badge and status "Pending".
+7. Try clicking **Update Status → In Production**: a red banner appears blocking it — **Rule 4 in action**.
+8. Now click **Mark Approved** on the design → enter:
+   - Approved By Name: `Rajan K`
+   - Method: `WhatsApp`
+   - Remarks: `Customer confirmed via WhatsApp`
+9. Try advancing to In Production again — it should succeed now.
+10. Upload another file → it becomes **v2** (Latest), and the old approval still shows in history.
+
+### 2. Test Payments
+
+1. Open an order that is in `confirmed` status.
+2. Click the **Payments** tab.
+3. Notice the summary cards: Total, Paid (₹0.00), Balance (full amount).
+4. Click **Record Payment**:
+   - Enter an amount *less than* the balance (e.g. ₹500 for a ₹2000 order).
+   - Mode: UPI, Reference: `TXN123`.
+   - Save — payment status badge changes to **Advance Paid**.
+5. Record another payment for the remaining balance → status becomes **Paid**.
+6. Test overpayment: enter an amount *greater* than balance.
+   - As a non-owner: you'll see a block message.
+   - As owner: you'll see a reason field — enter a reason and save.
+7. Cancel a payment: click the ⊗ icon next to a payment row → provide reason. It appears struck-through.
+
+### 3. Test Invoice Generation & PDF Print
+
+1. On the same order, Payments tab → click **Generate Invoice**.
+2. Select Type: `Final`, Tax: `18%` (GST), adjust discount if needed → preview the calculated totals.
+3. Click Generate → the invoice (`INV-0001`) appears in the Invoices list.
+4. Click the 🖨 button → opens a formatted print-preview window in English. Click Print.
+5. Click **`മലയാളം`** button → opens the same invoice in Malayalam with the bundled Malayalam font. Click Print.
+6. Test Cancel Invoice (owner only): click ⊗ on the invoice → enter reason → it shows as Cancelled.
+
+### 4. Test Accounts / Dues Screen
+
+1. In the sidebar, click **Accounts** (`അക്കൗണ്ടുകൾ`).
+2. The overview cards show Total Outstanding, Total Collected, Total Invoiced, and Overdue customer count.
+3. The **Customer Dues** tab lists every customer with pending balances, oldest-first.
+4. Click **Record Payment** next to a customer → a Quick Pay modal opens to pick the specific order and record payment.
+5. Switch to the **Invoices** tab → see all invoices searchable by customer or invoice number.
+6. Use the print buttons to test English and Malayalam invoice printing.
+
+### 5. Test Customer Payments Tab
+
+1. Go to **Customers** → click on a customer who has orders with payments.
+2. Click the **Payments** tab.
+3. You'll see the balance summary (Total Billed, Total Paid, Outstanding Due) and a table of all payments for that customer across all orders.
+4. The Outstanding Due also shows in the hero metric card at the top of the customer profile.
+
+---
+
 ### ⏳ Future Phases (Planned per PRD)
-- [ ] **Phase 4: Design & Approval Workflow** (Design asset uploads, versions, owner approval)
 - [ ] **Phase 5: Production & Job Cards** (Job card auto-generation, 4 stages: Cutting, Stitching/Assembly, QC, Packing)
 - [ ] **Phase 6: Worker Touch Screen** (Simplified touch UI with PIN login and barcode action)
 - [ ] **Phase 7: Store & Inventory** (Raw materials, stock levels, issue-to-order deduction)
 - [ ] **Phase 8: Delivery & Logistics** (Dispatch, delivery challans, customer sign-off)
-- [ ] **Phase 9: Accounts & Invoicing** (GST/tax invoicing, customer ledgers, payment tracking)
-- [ ] **Phase 10: Reports & Analytics** (Production throughput, revenue, export to PDF/Excel)
+- [ ] **Phase 9: Reports & Analytics** (Production throughput, revenue, export to PDF/Excel)
+
+---
+
+## 🧪 How to Test Phase 4: Design, Payments & Invoices
+
+### 1. Test Design Upload & Approval
+
+1. Launch the app: `npm run dev`
+2. Log in as **owner**.
+3. Go to **Orders** → open any order (e.g. `OD-0001`).
+4. Click the **Design** tab.
+5. Click **Upload Design** → pick any image (JPG/PNG) or PDF file from your computer.
+6. After upload, you'll see it listed as **v1** with "Latest" badge and status "Pending".
+7. Try clicking **Update Status → In Production**: a red banner appears blocking it — **Rule 4 in action**.
+8. Now click **Mark Approved** on the design → enter:
+   - Approved By Name: `Rajan K`
+   - Method: `WhatsApp`
+   - Remarks: `Customer confirmed via WhatsApp`
+9. Try advancing to In Production again — it should succeed now.
+10. Upload another file → it becomes **v2** (Latest), and the old approval still shows in history.
+
+### 2. Test Payments
+
+1. Open an order that is in `confirmed` status.
+2. Click the **Payments** tab.
+3. Notice the summary cards: Total, Paid (₹0.00), Balance (full amount).
+4. Click **Record Payment**:
+   - Enter an amount *less than* the balance (e.g. ₹500 for a ₹2000 order).
+   - Mode: UPI, Reference: `TXN123`.
+   - Save — payment status badge changes to **Advance Paid**.
+5. Record another payment for the remaining balance → status becomes **Paid**.
+6. Test overpayment: enter an amount *greater* than balance.
+   - As a non-owner: you'll see a block message.
+   - As owner: you'll see a reason field — enter a reason and save.
+7. Cancel a payment: click the ⊗ icon next to a payment row → provide reason. It appears struck-through.
+
+### 3. Test Invoice Generation & PDF Print
+
+1. On the same order, Payments tab → click **Generate Invoice**.
+2. Select Type: `Final`, Tax: `18%` (GST), adjust discount if needed → preview the calculated totals.
+3. Click Generate → the invoice (`INV-0001`) appears in the Invoices list.
+4. Click the 🖨 button → opens a formatted print-preview window in English. Click Print.
+5. Click **`മലയാളം`** button → opens the same invoice in Malayalam with the bundled Malayalam font. Click Print.
+6. Test Cancel Invoice (owner only): click ⊗ on the invoice → enter reason → it shows as Cancelled.
+
+### 4. Test Accounts / Dues Screen
+
+1. In the sidebar, click **Accounts** (`അക്കൗണ്ടുകൾ`).
+2. The overview cards show Total Outstanding, Total Collected, Total Invoiced, and Overdue customer count.
+3. The **Customer Dues** tab lists every customer with pending balances, oldest-first.
+4. Click **Record Payment** next to a customer → a Quick Pay modal opens to pick the specific order and record payment.
+5. Switch to the **Invoices** tab → see all invoices searchable by customer or invoice number.
+6. Use the print buttons to test English and Malayalam invoice printing.
+
+### 5. Test Customer Payments Tab
+
+1. Go to **Customers** → click on a customer who has orders with payments.
+2. Click the **Payments** tab.
+3. You'll see the balance summary (Total Billed, Total Paid, Outstanding Due) and a table of all payments for that customer across all orders.
+4. The Outstanding Due also shows in the hero metric card at the top of the customer profile.
 
 ---
 
@@ -155,6 +913,66 @@ Or view in browser at **http://localhost:5173**.
 
 ### 5. Test Language Switch
 - Toggle between **EN** and **മല** in the top navigation bar to test Malayalam and English localization across all quotation and order screens.
+
+---
+
+## 🧪 How to Test Phase 4: Design, Payments & Invoices
+
+### 1. Test Design Upload & Approval
+
+1. Launch the app: `npm run dev`
+2. Log in as **owner**.
+3. Go to **Orders** → open any order (e.g. `OD-0001`).
+4. Click the **Design** tab.
+5. Click **Upload Design** → pick any image (JPG/PNG) or PDF file from your computer.
+6. After upload, you'll see it listed as **v1** with "Latest" badge and status "Pending".
+7. Try clicking **Update Status → In Production**: a red banner appears blocking it — **Rule 4 in action**.
+8. Now click **Mark Approved** on the design → enter:
+   - Approved By Name: `Rajan K`
+   - Method: `WhatsApp`
+   - Remarks: `Customer confirmed via WhatsApp`
+9. Try advancing to In Production again — it should succeed now.
+10. Upload another file → it becomes **v2** (Latest), and the old approval still shows in history.
+
+### 2. Test Payments
+
+1. Open an order that is in `confirmed` status.
+2. Click the **Payments** tab.
+3. Notice the summary cards: Total, Paid (₹0.00), Balance (full amount).
+4. Click **Record Payment**:
+   - Enter an amount *less than* the balance (e.g. ₹500 for a ₹2000 order).
+   - Mode: UPI, Reference: `TXN123`.
+   - Save — payment status badge changes to **Advance Paid**.
+5. Record another payment for the remaining balance → status becomes **Paid**.
+6. Test overpayment: enter an amount *greater* than balance.
+   - As a non-owner: you'll see a block message.
+   - As owner: you'll see a reason field — enter a reason and save.
+7. Cancel a payment: click the ⊗ icon next to a payment row → provide reason. It appears struck-through.
+
+### 3. Test Invoice Generation & PDF Print
+
+1. On the same order, Payments tab → click **Generate Invoice**.
+2. Select Type: `Final`, Tax: `18%` (GST), adjust discount if needed → preview the calculated totals.
+3. Click Generate → the invoice (`INV-0001`) appears in the Invoices list.
+4. Click the 🖨 button → opens a formatted print-preview window in English. Click Print.
+5. Click **`മലയാളം`** button → opens the same invoice in Malayalam with the bundled Malayalam font. Click Print.
+6. Test Cancel Invoice (owner only): click ⊗ on the invoice → enter reason → it shows as Cancelled.
+
+### 4. Test Accounts / Dues Screen
+
+1. In the sidebar, click **Accounts** (`അക്കൗണ്ടുകൾ`).
+2. The overview cards show Total Outstanding, Total Collected, Total Invoiced, and Overdue customer count.
+3. The **Customer Dues** tab lists every customer with pending balances, oldest-first.
+4. Click **Record Payment** next to a customer → a Quick Pay modal opens to pick the specific order and record payment.
+5. Switch to the **Invoices** tab → see all invoices searchable by customer or invoice number.
+6. Use the print buttons to test English and Malayalam invoice printing.
+
+### 5. Test Customer Payments Tab
+
+1. Go to **Customers** → click on a customer who has orders with payments.
+2. Click the **Payments** tab.
+3. You'll see the balance summary (Total Billed, Total Paid, Outstanding Due) and a table of all payments for that customer across all orders.
+4. The Outstanding Due also shows in the hero metric card at the top of the customer profile.
 
 ---
 
